@@ -1,0 +1,14 @@
+{
+  "name": "write-rustdoc-hide-lines",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Rewrites rustdoc hidden lines (lines starting with '# ') into Zola hide_lines= fence annotations in Markdown files.",
+  "bin": {
+    "write-rustdoc-hide-lines": "src/main.ts"
+  },
+  "scripts": {
+    "start": "node --experimental-strip-types src/main.ts",
+    "test": "node --experimental-strip-types test/run.ts"
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "name": "generate-community",
+  "private": true,
+  "type": "module",
+  "description": "Generate Zola community/people pages from the bevy-community repo.",
+  "scripts": {
+    "generate": "node --experimental-strip-types generate.ts",
+    "validate": "node --experimental-strip-types validate.ts"
+  },
+  "dependencies": {
+    "smol-toml": "^1.3.1"
+  }
+}
