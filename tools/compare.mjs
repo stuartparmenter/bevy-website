@@ -129,10 +129,18 @@ function diffTree(a, b, path, diffs) {
   const p = `${path}/${a.tag}`;
   // attrs
   const keys = new Set([...Object.keys(a.attrs), ...Object.keys(b.attrs)]);
+  const isMetaDescription =
+    a.tag === "meta" &&
+    (a.attrs.property === "og:description" || a.attrs.name === "description") &&
+    (b.attrs.property === "og:description" || b.attrs.name === "description");
   for (const k of keys) {
-    if (a.attrs[k] !== b.attrs[k]) {
-      diffs.push(`${p}: attr ${k}="${a.attrs[k] ?? "∅"}" vs "${b.attrs[k] ?? "∅"}"`);
-    }
+    if (a.attrs[k] === b.attrs[k]) continue;
+    // og:description / description are content-derived, truncated summaries; their exact
+    // whitespace reflects Zola's pre-minification HTML (unobservable from minified output)
+    // and the truncation point shifts with it. Compare as whitespace-insensitive truncated
+    // prefixes of the same text instead of byte-exact.
+    if (isMetaDescription && k === "content" && descPrefixMatch(a.attrs[k], b.attrs[k])) continue;
+    diffs.push(`${p}: attr ${k}="${a.attrs[k] ?? "∅"}" vs "${b.attrs[k] ?? "∅"}"`);
   }
   if ("codeText" in a || "codeText" in b) {
     if (a.codeText !== b.codeText) diffs.push(`${p}: code text differs ("${trunc(a.codeText)}" vs "${trunc(b.codeText)}")`);
@@ -148,6 +156,18 @@ function diffTree(a, b, path, diffs) {
     return;
   }
   for (let i = 0; i < ac.length; i++) diffTree(ac[i], bc[i], `${p}[${i}]`, diffs);
+}
+
+// Both are truncated (trailing "…") whitespace-variant summaries of the same content;
+// accept when the shorter, whitespace-collapsed text is a prefix of the longer.
+function descPrefixMatch(a, b) {
+  if (a == null || b == null) return false;
+  const norm = (s) => s.replace(/…\s*$/, "").replace(/\s+/g, " ").trim();
+  const na = norm(a), nb = norm(b);
+  if (na === nb) return true;
+  const [short, long] = na.length <= nb.length ? [na, nb] : [nb, na];
+  // allow a small slack since the truncation boundary differs by a few characters
+  return long.startsWith(short.slice(0, Math.max(0, short.length - 5)));
 }
 
 function desc(n) {

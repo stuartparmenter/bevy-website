@@ -96,6 +96,8 @@ function rehypeHeadings(opts: { insertAnchor?: string; permalink: string; toc: T
       node.properties.id = id;
       flat.push({ id, title, level, permalink: `${opts.permalink}#${id}`, children: [] });
       if (opts.insertAnchor === "right") {
+        // Zola's anchor-link template contributes a newline before and after the link
+        // (visible only via striptags/og:description; whitespace-only in the DOM).
         node.children.push({ type: "text", value: "\n" });
         node.children.push({
           type: "element",
@@ -103,6 +105,7 @@ function rehypeHeadings(opts: { insertAnchor?: string; permalink: string; toc: T
           properties: { className: ["anchor-link"], href: `#${id}` },
           children: [{ type: "text", value: "#" }],
         });
+        node.children.push({ type: "text", value: "\n" });
       } else if (opts.insertAnchor === "left") {
         node.children.unshift({
           type: "element",

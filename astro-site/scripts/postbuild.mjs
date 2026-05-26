@@ -14,7 +14,9 @@ import { loadContent, REPO_ROOT, BASE_URL } from "../src/lib/content.ts";
 const DIST = fileURLToPath(new URL("../dist/", import.meta.url));
 const CONTENT = join(REPO_ROOT, "content");
 
-const MINIFY_CFG = { minify_css: true, minify_js: true, keep_comments: false };
+// minify_js disabled: Zola's JS minifier differs from @minify-html/node's, so inline
+// scripts are emitted pre-minified (verbatim Zola output) and left untouched here.
+const MINIFY_CFG = { minify_css: true, minify_js: false, keep_comments: false };
 
 function walk(dir, out = []) {
   for (const e of readdirSync(dir, { withFileTypes: true })) {

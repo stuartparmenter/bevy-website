@@ -2,6 +2,10 @@
 import type { Node } from "./content.ts";
 import { loadData } from "./content.ts";
 
+// Zola's minify_html minifies inline JS with a different JS minifier than
+// @minify-html/node, so these are stored verbatim as Zola emits them and the post-build
+// minifier runs with minify_js disabled (there are only these 3 distinct inline scripts
+// site-wide). minify_css remains on, since that engine matches Zola's exactly.
 export const PLAUSIBLE_SCRIPT =
   "window.plausible=window.plausible||function(){(plausible.q=plausible.q||[]).push(arguments)},plausible.init=plausible.init||(a=>{plausible.o=a||{}});plausible.init()";
 
