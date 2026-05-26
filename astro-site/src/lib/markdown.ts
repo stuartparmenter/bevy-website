@@ -172,26 +172,29 @@ function remarkZolaCodeFences() {
       const tokens = info.split(",").map((t: string) => t.trim());
       node.lang = tokens[0] || null;
       node.meta = null;
+      // Union all hide_lines ranges and strip once on the original line numbers (applying
+      // multiple strips sequentially would re-index and remove the wrong lines).
+      const hidden = new Set<number>();
       for (const t of tokens.slice(1)) {
         const m = /^hide_lines=(.+)$/.exec(t);
-        if (m) node.value = stripHiddenLines(node.value, m[1]);
+        if (m) collectRanges(m[1], hidden);
+      }
+      if (hidden.size) {
+        node.value = node.value.split("\n").filter((_: string, i: number) => !hidden.has(i + 1)).join("\n");
       }
     });
   };
 }
 
-function stripHiddenLines(code: string, spec: string): string {
-  const hidden = new Set<number>();
-  for (const range of spec.split(/[\s]+/)) {
+function collectRanges(spec: string, out: Set<number>) {
+  for (const range of spec.split(/\s+/)) {
     const rm = /^(\d+)-(\d+)$/.exec(range);
     if (rm) {
-      for (let i = +rm[1]; i <= +rm[2]; i++) hidden.add(i);
+      for (let i = +rm[1]; i <= +rm[2]; i++) out.add(i);
     } else if (/^\d+$/.test(range)) {
-      hidden.add(+range);
+      out.add(+range);
     }
   }
-  const lines = code.split("\n");
-  return lines.filter((_, i) => !hidden.has(i + 1)).join("\n");
 }
 
 // Rehype: replace the `<!-- more -->` raw comment with the continue-reading span. Raw

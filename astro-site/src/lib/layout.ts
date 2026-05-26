@@ -45,6 +45,14 @@ export function pageTitle(node?: Node): string {
   return title;
 }
 
+// Zola's `urlencode` filter percent-encodes everything except unreserved chars and `/`,
+// unlike JS encodeURIComponent which leaves !'()*~ unescaped.
+export function urlencode(s: string): string {
+  return encodeURIComponent(s)
+    .replace(/[!'()*~]/g, (c) => "%" + c.charCodeAt(0).toString(16).toUpperCase())
+    .replace(/%2F/g, "/");
+}
+
 export interface HeaderItem {
   name: string;
   path?: string;

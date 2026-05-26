@@ -4,7 +4,7 @@ import BaseLayout from "./BaseLayout.astro";
 import DocsMenu from "../components/DocsMenu.astro";
 import type { Node } from "../lib/content.ts";
 import { renderMarkdown, truncate } from "../lib/markdown.ts";
-import { pageHeaderMessage } from "../lib/layout.ts";
+import { pageHeaderMessage, urlencode } from "../lib/layout.ts";
 import { rootSectionFor, prevNext, ancestorIsPublicDraft } from "../lib/docs.ts";
 
 interface Props { node: Node; }
@@ -30,7 +30,7 @@ const ogDescription =
     ? undefined
     : node.description ?? (rendered.plainText.trim() ? truncate(rendered.plainText, 150) : undefined);
 const editPath = node.relativePath;
-const reportTitle = encodeURIComponent(node.title);
+const reportTitle = urlencode(node.title);
 ---
 <BaseLayout
   node={node}
