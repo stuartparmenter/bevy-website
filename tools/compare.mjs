@@ -150,7 +150,16 @@ function diffTree(a, b, path, diffs) {
     if (a.raw !== b.raw) diffs.push(`${p}: inline ${a.tag} differs ("${trunc(a.raw)}" vs "${trunc(b.raw)}")`);
     return;
   }
-  const ac = a.children || [], bc = b.children || [];
+  // Tree-menu sibling order among equal-weight items follows Zola's filesystem-walk
+  // order, which is non-portable and non-semantic (the menu content is identical either
+  // way). Canonicalize sibling order before comparing so it doesn't register as a diff.
+  // TODO: if Zola's exact equal-weight tiebreak is ever pinned down, drop this and compare
+  // tree-menu children in strict order.
+  let ac = a.children || [], bc = b.children || [];
+  if (a.tag === "ul" && (a.attrs.class || "").split(" ").includes("tree-menu")) {
+    ac = canonicalizeTreeMenu(ac);
+    bc = canonicalizeTreeMenu(bc);
+  }
   if (ac.length !== bc.length) {
     diffs.push(`${p}: child count ${ac.length} vs ${bc.length} [${ac.map(desc).slice(0,8).join(",")}] vs [${bc.map(desc).slice(0,8).join(",")}]`);
     return;
@@ -168,6 +177,34 @@ function descPrefixMatch(a, b) {
   const [short, long] = na.length <= nb.length ? [na, nb] : [nb, na];
   // allow a small slack since the truncation boundary differs by a few characters
   return long.startsWith(short.slice(0, Math.max(0, short.length - 5)));
+}
+
+// Group a tree-menu <ul>'s children into units (each optional <input> + its <li>) and
+// sort units by the unit's link href, so equal-weight sibling ordering is normalized.
+function canonicalizeTreeMenu(children) {
+  const units = [];
+  for (let i = 0; i < children.length; i++) {
+    const c = children[i];
+    if (c.type === "el" && c.tag === "input" && children[i + 1] && children[i + 1].tag === "li") {
+      units.push([c, children[i + 1]]);
+      i++;
+    } else {
+      units.push([c]);
+    }
+  }
+  const hrefOf = (unit) => {
+    const li = unit.find((n) => n.type === "el" && n.tag === "li") || unit[0];
+    let href = "";
+    const findLink = (n) => {
+      if (href || !n || n.type !== "el") return;
+      if (n.tag === "a" && (n.attrs.class || "").includes("tree-menu__link")) { href = n.attrs.href || ""; return; }
+      for (const ch of n.children || []) findLink(ch);
+    };
+    findLink(li);
+    return href;
+  };
+  units.sort((u1, u2) => hrefOf(u1).localeCompare(hrefOf(u2)));
+  return units.flat();
 }
 
 function desc(n) {

@@ -89,7 +89,9 @@ export function footerLinks(): FooterLink[] {
   return (data.links as FooterLink[]).filter((l) => l.show_in_footer);
 }
 
-// Whether base.html sets a noindex robots meta.
-export function isNoindex(node?: Node, ancestorIsPublicDraft = false): boolean {
-  return ancestorIsPublicDraft || !!(node && node.extra && node.extra.public_draft);
+// Whether base.html sets a noindex robots meta. In base.html the check runs *before*
+// the head_extensions block that assigns `ancestor_is_public_draft`, so that variable is
+// always still false at check time — only the node's OWN extra.public_draft triggers it.
+export function isNoindex(node?: Node, _ancestorIsPublicDraft = false): boolean {
+  return !!(node && node.extra && node.extra.public_draft);
 }

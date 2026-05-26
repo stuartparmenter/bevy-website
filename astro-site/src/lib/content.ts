@@ -260,8 +260,11 @@ export function loadContent() {
     else parent.subsections.push(n);
   }
 
-  // Sort pages within each section per its sort_by (date desc, else weight asc).
+  // Deterministic base order by source path, then by sort_by (date desc, else weight asc).
+  const byPathAsc = (a: Node, b: Node) => a.srcPath.localeCompare(b.srcPath);
   for (const s of sections) {
+    s.pages.sort(byPathAsc);
+    s.subsections.sort(byPathAsc);
     if (s.sortBy === "date") {
       s.pages.sort((a, b) => (b.dateRaw || "").localeCompare(a.dateRaw || ""));
     } else {
@@ -270,17 +273,19 @@ export function loadContent() {
     s.subsections.sort((a, b) => a.weight - b.weight);
   }
 
-  // Pages inherit insert_anchor_links from their nearest ancestor section (Zola behavior).
-  for (const n of all) {
-    if (n.insertAnchorLinks != null) continue;
-    let p = n.parent;
-    while (p) {
-      if (p.insertAnchorLinks != null) {
-        n.insertAnchorLinks = p.insertAnchorLinks;
-        break;
-      }
-      p = p.parent;
-    }
+  // Effective insert_anchor_links: Zola honors the setting on SECTIONS only. A section
+  // uses its own value, otherwise inherits from its ancestor section; a page ignores its
+  // own frontmatter value entirely and takes its parent section's effective value.
+  const ownAnchor = new Map<Node, string | undefined>();
+  for (const n of all) ownAnchor.set(n, n.insertAnchorLinks);
+  const sectionsByDepth = all
+    .filter((n) => n.kind === "section")
+    .sort((a, b) => a.components.length - b.components.length);
+  for (const s of sectionsByDepth) {
+    s.insertAnchorLinks = ownAnchor.get(s) ?? (s.parent ? s.parent.insertAnchorLinks : undefined);
+  }
+  for (const p of all) {
+    if (p.kind === "page") p.insertAnchorLinks = p.parent ? p.parent.insertAnchorLinks : undefined;
   }
 
   const root = sectionByPath.get("/")!;

@@ -1,0 +1,103 @@
+---
+// Mirrors templates/docs.html (extends layouts/page-with-menu.html)
+import BaseLayout from "./BaseLayout.astro";
+import DocsMenu from "../components/DocsMenu.astro";
+import type { Node } from "../lib/content.ts";
+import { renderMarkdown, truncate } from "../lib/markdown.ts";
+import { pageHeaderMessage } from "../lib/layout.ts";
+import { rootSectionFor, prevNext, ancestorIsPublicDraft } from "../lib/docs.ts";
+
+interface Props { node: Node; }
+const { node } = Astro.props as Props;
+const ex = node.extra || {};
+const currentPath = node.path;
+
+const rendered = renderMarkdown(node.body, {
+  insertAnchorLinks: node.insertAnchorLinks,
+  permalink: node.permalink,
+  colocatedPath: node.colocatedPath ?? "",
+});
+
+const root = rootSectionFor(node)!;
+const { prev, next } = prevNext(node);
+const h1 = ex.long_title ?? node.title;
+const headerMsg = pageHeaderMessage(node);
+const ancestorDraft = ancestorIsPublicDraft(node);
+// base.html's og:description checks `page.description`/`page.content`, which are
+// undefined for sections — so a section always falls through to the default description.
+const ogDescription =
+  node.kind === "section"
+    ? undefined
+    : node.description ?? (rendered.plainText.trim() ? truncate(rendered.plainText, 150) : undefined);
+const editPath = node.relativePath;
+const reportTitle = encodeURIComponent(node.title);
+---
+<BaseLayout
+  node={node}
+  themeClass="light-mode"
+  mainMenuExtraClass="main-menu--with-page-menu"
+  ancestorIsPublicDraft={ancestorDraft}
+  ogDescription={ogDescription}
+>
+  <Fragment slot="head_extensions">
+    <script is:inline src="/optional-helpers.js"></script>
+    <script is:inline defer src="/highlight-intrapage-link.js"></script>
+    <script is:inline defer src="/clipboard.js"></script>
+  </Fragment>
+  <input slot="mobile_page_menu_state" id="page-menu-switch-state" class="hidden" type="checkbox" checked />
+  <div slot="mobile_page_menu_switch" class="main-menu__page-menu-switch">
+    <label class="menu-switch" for="page-menu-switch-state">
+      <div class="menu-switch__option menu-switch__option--main-menu">Main Menu</div>
+      <div class="menu-switch__option menu-switch__option--page-menu">{headerMsg}</div>
+    </label>
+  </div>
+  <DocsMenu slot="mobile_page_menu" root={root} prefix="mobile-menu" currentPath={currentPath} currentToc={rendered.toc} />
+
+  <div class="page-with-menu">
+    <div class="page-with-menu__menu-wrapper print:hidden">
+      <div class="page-with-menu__menu">
+        <DocsMenu root={root} prefix="page-menu" currentPath={currentPath} currentToc={rendered.toc} />
+      </div>
+    </div>
+    <div class="page-with-menu__content">
+      <div class="docs-page">
+        <div class="docs-content">
+          <h1 set:html={h1} />
+          <div class="media-content" set:html={rendered.html} />
+          <div class="docs-footer print:hidden">
+            <nav class="docs-footer__nav">
+              {next && (
+                <a class="docs-footer__link docs-footer__link--next" href={next.path} data-docs-nav-next>
+                  <div class="docs-footer__label">
+                    <div class="docs-footer__dir">Next</div>
+                    {next.title}
+                  </div>
+                  <i class="docs-footer__chevron icon icon--chevron-right"></i>
+                </a>
+              )}
+              {prev && (
+                <a class="docs-footer__link docs-footer__link--prev" href={prev.path} data-docs-nav-previous>
+                  <div class="docs-footer__label">
+                    <div class="docs-footer__dir">Previous</div>
+                    {prev.title}
+                  </div>
+                  <i class="docs-footer__chevron icon icon--chevron-left"></i>
+                </a>
+              )}
+            </nav>
+            <div class="docs-footer__edit-wrapper">
+              <a class="docs-footer__edit" href={`https://github.com/bevyengine/bevy-website/edit/main/content/${editPath}`}>
+                <i class="icon icon--pencil"></i>
+                Improve this page
+              </a>
+              <a class="docs-footer__edit" href={`https://github.com/bevyengine/bevy-website/issues/new?template=docs.md&title=Issue%20on%20page%20${reportTitle}`}>
+                <i class="icon icon--github"></i>
+                Report issue
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</BaseLayout>

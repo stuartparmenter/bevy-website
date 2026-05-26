@@ -126,30 +126,67 @@ function rehypeHeadings(opts: { insertAnchor?: string; permalink: string; toc: T
   };
 }
 
-// Remark (mdast): resolve relative URLs of *markdown-native* links/images against the
-// page permalink, as Zola does. Raw-HTML elements (e.g. <video src>) are NOT touched,
-// matching Zola which only resolves markdown link/image syntax. Fragment-only links
-// (`#anchor`) are also resolved to absolute permalinks.
+// Remark (mdast): resolve URLs of markdown-native links/images as Zola does. Raw-HTML
+// elements (e.g. <video src>) are NOT touched. Links resolve only the `@/` internal-link
+// syntax and `#fragment` (to absolute permalinks); other relative link paths (e.g.
+// `../intro/`) are left for the browser. Relative image paths are resolved against the
+// page permalink (colocated assets).
 function remarkResolveLinks(permalink: string) {
-  const isRelative = (u: string) =>
-    u && !/^[a-z][a-z0-9+.-]*:/i.test(u) && !u.startsWith("/") && !u.startsWith("//");
+  // Resolvable relative target: not a scheme/protocol-relative/site-absolute URL, and not
+  // a parent-relative path (`../…`, which Zola leaves for the browser). `#anchor` and bare
+  // or `./`-prefixed paths ARE resolved (verbatim, appended to the permalink).
+  const isResolvable = (u: string) =>
+    !!u && !/^[a-z][a-z0-9+.-]*:/i.test(u) && !u.startsWith("/") && !u.startsWith("//") && !u.startsWith("..");
   const resolve = (u: string) => {
-    // Zola internal links: @/path/to/file.md[#anchor] -> that page's permalink.
     if (u.startsWith("@/")) {
       const resolved = internalLinkUrl(u.slice(2));
       if (resolved) return resolved;
     }
-    let v = u;
-    if (v.startsWith("./")) v = v.slice(2);
-    return isRelative(v) ? permalink + v : v;
+    return isResolvable(u) ? permalink + u : u;
   };
   return (tree: any) => {
     visit(tree, (node: any) => {
-      if ((node.type === "link" || node.type === "image" || node.type === "definition") && typeof node.url === "string") {
+      if (typeof node.url !== "string") return;
+      if (node.type === "image" || node.type === "link" || node.type === "definition") {
         node.url = resolve(node.url);
       }
     });
   };
+}
+
+// Remark (mdast): handle Zola code-fence annotations. The fence info string is
+// comma-separated: the first token is the language; `hide_lines=<ranges>` strips those
+// 1-indexed lines (e.g. rustdoc `# ` lines folded by write-rustdoc-hide-lines). Other
+// annotations (hl_lines, linenos, …) only affect highlight spans, which are normalized
+// away, so they're just dropped from the language token.
+function remarkZolaCodeFences() {
+  return (tree: any) => {
+    visit(tree, "code", (node: any) => {
+      const info = [node.lang, node.meta].filter(Boolean).join(" ");
+      if (!info) return;
+      const tokens = info.split(",").map((t: string) => t.trim());
+      node.lang = tokens[0] || null;
+      node.meta = null;
+      for (const t of tokens.slice(1)) {
+        const m = /^hide_lines=(.+)$/.exec(t);
+        if (m) node.value = stripHiddenLines(node.value, m[1]);
+      }
+    });
+  };
+}
+
+function stripHiddenLines(code: string, spec: string): string {
+  const hidden = new Set<number>();
+  for (const range of spec.split(/[\s]+/)) {
+    const rm = /^(\d+)-(\d+)$/.exec(range);
+    if (rm) {
+      for (let i = +rm[1]; i <= +rm[2]; i++) hidden.add(i);
+    } else if (/^\d+$/.test(range)) {
+      hidden.add(+range);
+    }
+  }
+  const lines = code.split("\n");
+  return lines.filter((_, i) => !hidden.has(i + 1)).join("\n");
 }
 
 // Rehype: replace the `<!-- more -->` raw comment with the continue-reading span. Raw
@@ -213,6 +250,7 @@ function renderToHtml(src: string, ctx: ShortcodeContext, toc: TocEntry[], ptRef
   const file = unified()
     .use(remarkParse)
     .use(remarkGfmNoAutolink)
+    .use(remarkZolaCodeFences)
     .use(remarkResolveLinks, ctx.permalink)
     .use(remarkRehype, { allowDangerousHtml: true })
     .use(rehypeContinueReading)

@@ -1,0 +1,26 @@
+---
+// Mirrors macros/public_draft.html :: warning (walks up to the first public_draft ancestor)
+import type { Node } from "../lib/content.ts";
+interface Props { node: Node; }
+const { node } = Astro.props as Props;
+// Find first node (self, then ancestors) with extra.public_draft.
+let cur: Node | undefined = node;
+let isSelf = true;
+let draftNode: Node | undefined;
+let selfDraft = false;
+while (cur) {
+  if (cur.extra && cur.extra.public_draft) { draftNode = cur; selfDraft = isSelf; break; }
+  cur = cur.parent; isSelf = false;
+}
+const issue = draftNode ? Math.trunc(Number(draftNode.extra.public_draft)) : 0;
+---
+{draftNode && (selfDraft ? (
+  <>
+    <h1 class="warning draft-header">Draft Page</h1>
+    <div>
+      The page is still under development (Tracking Issue: <a href={`https://github.com/bevyengine/bevy-website/issues/${issue}`}>{issue}</a>). This page and all pages under it will be hidden from search engines and menus!
+    </div>
+  </>
+) : (
+  <h1 class="warning">This page is hidden because an ancestor is hidden</h1>
+))}

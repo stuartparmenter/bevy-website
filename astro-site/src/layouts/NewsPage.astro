@@ -21,7 +21,7 @@ const authorsText = node.authors.length ? node.authors.join("") : "Bevy Contribu
 const dateText = node.date ? formatDate(node.date, "%B %-d, %Y") : "";
 const hasSocial = ex.twitter || ex.github || ex.youtube;
 // base.html og:description: description, else striptags(content)|truncate(150).
-const ogDescription = node.description ?? truncate(rendered.plainText, 150);
+const ogDescription = node.description ?? (rendered.plainText.trim() ? truncate(rendered.plainText, 150) : undefined);
 ---
 <BaseLayout
   node={node}

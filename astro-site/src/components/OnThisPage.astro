@@ -1,0 +1,21 @@
+---
+import type { TocEntry } from "../lib/markdown.ts";
+interface Props { toc: TocEntry[]; class?: string; }
+const { toc, class: cls = "" } = Astro.props as Props;
+---
+<nav aria-label="On This Page" class={`on-this-page ${cls}`.trim()} data-highlight-intrapage-link>
+  <ul>
+    {toc.map((h1) => (
+      <li>
+        <a href={`#${h1.id}`}>{h1.title}</a>
+        {h1.children.length > 0 && (
+          <ul>
+            {h1.children.map((h2) => (
+              <li><a href={`#${h2.id}`}>{h2.title}</a></li>
+            ))}
+          </ul>
+        )}
+      </li>
+    ))}
+  </ul>
+</nav>

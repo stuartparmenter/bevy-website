@@ -1,0 +1,14 @@
+---
+// Mirrors macros/docs.html :: docs_menu
+import type { Node } from "../lib/content.ts";
+import type { TocEntry } from "../lib/markdown.ts";
+import { pagesAndSections, isMigrationGuide } from "../lib/docs.ts";
+import DocsMenuRow from "./DocsMenuRow.astro";
+interface Props { root: Node; prefix: string; currentPath: string; currentToc: TocEntry[]; }
+const { root, prefix, currentPath, currentToc } = Astro.props as Props;
+let items = pagesAndSections(root);
+if (isMigrationGuide(currentPath)) items = [...items].reverse();
+---
+<ul class="tree-menu">
+  {items.map((c) => <DocsMenuRow node={c} prefix={prefix} currentPath={currentPath} currentToc={currentToc} />)}
+</ul>

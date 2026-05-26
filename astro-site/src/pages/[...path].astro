@@ -1,10 +1,11 @@
 ---
 import { loadContent, templateFor, type Node } from "../lib/content.ts";
 import NewsPage from "../layouts/NewsPage.astro";
+import DocsLayout from "../layouts/DocsLayout.astro";
 
 export function getStaticPaths() {
   // Templates implemented so far; nodes using other templates are skipped until ported.
-  const IMPLEMENTED = new Set(["news-page.html"]);
+  const IMPLEMENTED = new Set(["news-page.html", "docs.html"]);
   const { all } = loadContent();
   const paths = [];
   for (const node of all) {
@@ -23,3 +24,4 @@ export function getStaticPaths() {
 const { node, tmpl } = Astro.props as { node: Node; tmpl: string };
 ---
 {tmpl === "news-page.html" && <NewsPage node={node} />}
+{tmpl === "docs.html" && <DocsLayout node={node} />}

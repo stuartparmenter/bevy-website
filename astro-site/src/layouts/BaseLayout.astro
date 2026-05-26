@@ -4,6 +4,7 @@ import {
   PLAUSIBLE_SCRIPT, SHOW_DRAFTS_SCRIPT,
   pageHeaderMessage, pageTitle, HEADER_ITEMS, headerItem, footerLinks, isNoindex,
 } from "../lib/layout.ts";
+import DraftWarning from "../components/DraftWarning.astro";
 
 interface Props {
   node?: Node;
@@ -63,7 +64,7 @@ const mainMenuClass = ("header__menu main-menu " + mainMenuExtraClass).trim();
     {noindex && <meta name="robots" content="noindex, nofollow, noarchive" />}
     <title>{draftPrefix}{ptitle}</title>
     <slot name="head_extensions" />
-    <script async src="https://plausible.io/js/pa-Y3chmKZU0FVsmsgC432RR.js"></script>
+    <script is:inline async src="https://plausible.io/js/pa-Y3chmKZU0FVsmsgC432RR.js"></script>
     <script is:inline set:html={PLAUSIBLE_SCRIPT}></script>
   </head>
   <body>
@@ -123,7 +124,7 @@ const mainMenuClass = ("header__menu main-menu " + mainMenuExtraClass).trim();
       </header>
       <main class="layout__content">
         <div class="container">
-          <slot name="draft_warning" />
+          {node && <DraftWarning node={node} />}
           <slot />
         </div>
       </main>
