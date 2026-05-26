@@ -54,6 +54,22 @@ features). Frontmatter may change; Tera templates → Astro components; Rust gen
 - `tools/`       comparison + helper scripts
 - Zola files remain in place for reference/validation during migration.
 
+## Known cross-engine limitations (cannot byte/structurally match)
+
+- **Search index** (`search_index.en.js`): Zola's elasticlunr index is an engine-specific
+  serialization; not reproducible. `elasticlunr.min.js` is a Zola builtin (copied as a
+  static asset).
+- **`resize_image` thumbnails** (`processed_images/<name>.<hash>.<ext>`): the hashed
+  filenames and resized bytes are produced by Zola's image pipeline; a JS resizer yields
+  different hashes/bytes, so `news/` index-card `src`s and these files won't match exactly.
+- **Docs prev/next on ~9 book pages**: equal-weight sibling order follows Zola's
+  non-portable filesystem-walk order (the-renderer/assets, release-builds/profiling). The
+  menu is compared order-insensitively; the prev/next footer of the tie-adjacent pages can
+  differ. See TODO in `astro-site/src/lib/docs.ts`.
+- **Generated content** (assets/errors/community/wasm-examples): produced by the
+  `generate-*` programs (ported to TS in `tools/generate-*`), requires network + external
+  repos; not built locally so not in the comparison baseline.
+
 ## Progress
 
 (see task list)
