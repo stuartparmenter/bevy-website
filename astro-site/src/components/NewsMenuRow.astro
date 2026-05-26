@@ -1,0 +1,25 @@
+---
+import type { TocEntry } from "../lib/markdown.ts";
+import { slugify } from "../lib/slugify.ts";
+import Self from "./NewsMenuRow.astro";
+interface Props { header: TocEntry; maxLevels: number; level: number; }
+const { header, maxLevels, level } = Astro.props as Props;
+const id = `news-menu-${level}-${slugify(header.title)}`;
+const showChildren = header.children.length > 0 && level < maxLevels;
+---
+{showChildren && <input id={id} class="tree-menu__state" type="checkbox" checked />}
+<li class="tree-menu__item">
+  <div class={showChildren ? "tree-menu__label tree-menu__label--with-chevron" : "tree-menu__label"}>
+    <a class="tree-menu__link" href={header.permalink}>{header.title}</a>
+    {showChildren && (
+      <label class="tree-menu__toggle" for={id}>
+        <img class="tree-menu__chevron" src="/assets/icon-chevron-down.svg" alt="A chevron, or V-shaped symbol" width="15" height="24" />
+      </label>
+    )}
+  </div>
+  {showChildren && (
+    <ul class="tree-menu">
+      {header.children.map((sub) => <Self header={sub} maxLevels={maxLevels} level={level + 1} />)}
+    </ul>
+  )}
+</li>

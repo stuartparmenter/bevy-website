@@ -29,7 +29,9 @@ const {
 
 const ptitle = title ?? pageTitle(node);
 const ex = node?.extra ?? {};
-const path = node ? node.path : "";
+// base.html computes `path = "/" ~ page.path`; page.path already has a leading slash,
+// so the og:url legitimately contains a double slash (e.g. https://bevy.org//news/...).
+const path = node ? "/" + node.path : "";
 const ogImage = ex.image
   ? `https://bevy.org${currentPath}${ex.image}`
   : "https://bevy.org/assets/bevy_logo_fill.png";

@@ -1,0 +1,11 @@
+---
+import type { TocEntry } from "../lib/markdown.ts";
+import NewsMenuRow from "./NewsMenuRow.astro";
+interface Props { toc: TocEntry[]; maxLevels: number; }
+const { toc, maxLevels } = Astro.props as Props;
+---
+{toc.length > 0 && (
+  <ul class="tree-menu" data-highlight-intrapage-link>
+    {toc.map((header) => <NewsMenuRow header={header} maxLevels={maxLevels} level={1} />)}
+  </ul>
+)}

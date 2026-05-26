@@ -1,0 +1,25 @@
+---
+import { loadContent, templateFor, type Node } from "../lib/content.ts";
+import NewsPage from "../layouts/NewsPage.astro";
+
+export function getStaticPaths() {
+  // Templates implemented so far; nodes using other templates are skipped until ported.
+  const IMPLEMENTED = new Set(["news-page.html"]);
+  const { all } = loadContent();
+  const paths = [];
+  for (const node of all) {
+    if (node.path === "/") continue; // homepage handled by index.astro
+    if (node.redirectTo) continue; // redirects emitted by postbuild
+    const tmpl = templateFor(node);
+    if (!IMPLEMENTED.has(tmpl)) continue;
+    paths.push({
+      params: { path: node.path.replace(/^\/|\/$/g, "") },
+      props: { node, tmpl },
+    });
+  }
+  return paths;
+}
+
+const { node, tmpl } = Astro.props as { node: Node; tmpl: string };
+---
+{tmpl === "news-page.html" && <NewsPage node={node} />}

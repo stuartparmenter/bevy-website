@@ -1,0 +1,90 @@
+---
+// Mirrors templates/news-page.html (extends layouts/page-with-menu.html)
+import BaseLayout from "./BaseLayout.astro";
+import NewsMenu from "../components/NewsMenu.astro";
+import type { Node } from "../lib/content.ts";
+import { renderMarkdown, truncate } from "../lib/markdown.ts";
+import { formatDate } from "../lib/dates.ts";
+import { IMAGE_COMPARE_SCRIPT } from "../lib/layout.ts";
+
+interface Props { node: Node; }
+const { node } = Astro.props as Props;
+const ex = node.extra || {};
+
+const rendered = renderMarkdown(node.body, {
+  insertAnchorLinks: node.insertAnchorLinks,
+  permalink: node.permalink,
+  colocatedPath: node.colocatedPath ?? "",
+});
+
+const authorsText = node.authors.length ? node.authors.join("") : "Bevy Contributors";
+const dateText = node.date ? formatDate(node.date, "%B %-d, %Y") : "";
+const hasSocial = ex.twitter || ex.github || ex.youtube;
+// base.html og:description: description, else striptags(content)|truncate(150).
+const ogDescription = node.description ?? truncate(rendered.plainText, 150);
+---
+<BaseLayout
+  node={node}
+  mainMenuExtraClass="main-menu--with-page-menu"
+  ogDescription={ogDescription}
+>
+  <script slot="head_extensions" defer src="/highlight-intrapage-link.js"></script>
+  <input slot="mobile_page_menu_state" id="page-menu-switch-state" class="hidden" type="checkbox" checked />
+  <div slot="mobile_page_menu_switch" class="main-menu__page-menu-switch">
+    <label class="menu-switch" for="page-menu-switch-state">
+      <div class="menu-switch__option menu-switch__option--main-menu">Main Menu</div>
+      <div class="menu-switch__option menu-switch__option--page-menu">Post</div>
+    </label>
+  </div>
+  <NewsMenu slot="mobile_page_menu" toc={rendered.toc} maxLevels={1} />
+
+  <div class="page-with-menu page-with-menu--news">
+    <div class="page-with-menu__menu-wrapper print:hidden">
+      <div class="page-with-menu__menu">
+        <NewsMenu toc={rendered.toc} maxLevels={1} />
+      </div>
+    </div>
+    <div class="page-with-menu__content">
+      <h1 class="news-title">{node.title}</h1>
+      <h2 class="news-subtitle">
+        Posted on {dateText} by {authorsText}
+        {hasSocial && (
+          <span class="news-social-links">
+            (
+            {ex.github && (
+              <>
+                <img src="/assets/github_grey.svg" class="news-social-icon" alt="A silhouette of a figure with cat ears waving a tentacle, or Octocat: GitHub's mascot and logo" width="496" height="512" />
+                <span class="media-content"><a class="news-social-link" href={`https://www.github.com/${ex.github}`}>@{ex.github}</a></span>
+              </>
+            )}
+            {ex.twitter && (
+              <>
+                <img src="/assets/twitter_grey.svg" class="news-social-icon" alt="A vector art of a grey bird flying; former logo of X (formerly Twitter)" width="512" height="512" />
+                <span class="media-content"><a class="news-social-link" href={`https://www.twitter.com/${ex.twitter}`}>@{ex.twitter}</a></span>
+              </>
+            )}
+            {ex.youtube && (
+              <>
+                <img src="/assets/youtube_grey.svg" class="news-social-icon" alt="A triangle pointing right in a rounded rectangle; Youtube's logo" width="576" height="512" />
+                <span class="media-content"><a class="news-social-link" href={`https://www.youtube.com/${ex.youtube}`}>{ex.youtube}</a></span>
+              </>
+            )}
+            )
+          </span>
+        )}
+      </h2>
+      {ex.image && ex.show_image && (
+        <div class="media-content news-content news-content__hero-image">
+          <img src={ex.image} alt={ex.image_subtitle || "An image representing the article"} style="aspect-ratio: auto 16 / 9" />
+          {ex.image_subtitle && (
+            ex.image_subtitle_link
+              ? <div class="news-image-subtitle"><a href={ex.image_subtitle_link}>{ex.image_subtitle}</a></div>
+              : <div class="news-image-subtitle">{ex.image_subtitle}</div>
+          )}
+        </div>
+      )}
+      <div class="media-content news-content" set:html={rendered.html} />
+      <script type="module" is:inline set:html={IMAGE_COMPARE_SCRIPT}></script>
+    </div>
+  </div>
+</BaseLayout>
