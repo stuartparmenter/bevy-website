@@ -23,3 +23,9 @@ target/
 
 # MacOS folder attributes
 **/.DS_Store
+
+# Astro migration
+astro-site/node_modules/
+astro-site/dist/
+astro-site/.astro/
+tools/node_modules/

@@ -1,0 +1,8 @@
+{
+  "name": "bevy-migration-tools",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "parse5": "^7.2.1"
+  }
+}
