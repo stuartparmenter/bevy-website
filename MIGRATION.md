@@ -13,8 +13,8 @@ features). Frontmatter may change; Tera templates → Astro components; Rust gen
 
 ## Key Zola features in use (must reproduce)
 
-- TOML `+++` frontmatter (sections `_index.md` + pages). Astro will use YAML; a
-  preprocessing step / custom loader converts TOML→data.
+- TOML `+++` frontmatter (sections `_index.md` + pages). `src/lib/content.ts` parses the
+  existing TOML directly (no rewrite to YAML), so `content/` is untouched.
 - Tera template inheritance (`layouts/base.html`), macros, blocks → Astro layouts/components.
 - Shortcodes (`templates/shortcodes/*`) used inside markdown → remark/rehype + MDX-ish handling.
 - Taxonomies (`news`) + Atom feed (`atom.xml`) + per-section feeds.
@@ -35,7 +35,7 @@ features). Frontmatter may change; Tera templates → Astro components; Rust gen
    whitespace, compare tag/attrs/children recursively. Code blocks (`pre>code`) compared by
    normalized text only. Non-HTML (xml/txt/css) compared by normalized text. Binary assets by
    existence + size. Reports per-file structural diffs + a summary.
-2. **Astro scaffold** (`astro-site/`): output `dist/`, minify off (comparator normalizes).
+2. **Astro project** (repo root): output `dist/`, minify off (comparator normalizes).
 3. **Static passthrough**: `static/` + colocated content assets + processed images.
 4. **Layouts/pages/components** ported from Tera.
 5. **Markdown pipeline**: remark/rehype tuned to match pulldown-cmark + anchor links + slugify.
@@ -63,12 +63,11 @@ Build: `npm run build` → `dist/`.  Compare: `node tools/compare.mjs /tmp/zola-
 
 ## Cutover status / remaining for production
 
-Done: Astro at repo root; Rust→TS in place; Zola files removed; `deploy.yml` and the key
-`ci.yml` jobs (`check-hide-lines`, `build-website`) switched to Node/Astro.
-
 Done:
-- `ci.yml` converted to Node/Astro (`test-tools` replaces the Rust lint/test jobs; the
-  `generate-*` jobs use Node; `build-website` runs `npm run build`).
+- Astro project at the repo root; Zola-only files removed.
+- All Rust crates replaced by their TypeScript ports in place.
+- `deploy.yml` and `ci.yml` converted to Node/Astro (`test-tools` replaces the Rust
+  lint/test jobs; the `generate-*` jobs use Node; `build-website` runs `npm run build`).
 - **Search** works: `scripts/postbuild.mjs` builds `search_index.en.js` with the
   `elasticlunr` package (v0.9.5, 161 docs — same count as Zola), and ships
   `elasticlunr.min.js` from `node_modules` (the vendored copy was removed). The index is
@@ -80,44 +79,48 @@ Remaining (optional, functional):
 - **News thumbnails**: `resize_image` produced hashed `processed_images/*`; decide on an
   Astro image-processing step (or accept different filenames). Only affects `news/index`.
 
-## Known cross-engine limitations (cannot byte/structurally match)
+## Known cross-engine differences (functionally equivalent, not byte-identical)
 
-- **Search index** (`search_index.en.js`): Zola's elasticlunr index is an engine-specific
-  serialization; not reproducible. `elasticlunr.min.js` is a Zola builtin (copied as a
-  static asset).
+- **Search index** (`search_index.en.js`): produced by `scripts/postbuild.mjs` with the
+  `elasticlunr` package (v0.9.5; 161 docs — same count as Zola) in the same
+  `elasticlunr.Index.toJSON` shape, and queryable. Term frequencies differ from Zola's
+  Rust elasticlunr port, so it isn't byte-identical. `elasticlunr.min.js` is shipped from
+  the npm package (different minification than Zola's bundle).
 - **`resize_image` thumbnails** (`processed_images/<name>.<hash>.<ext>`): the hashed
   filenames and resized bytes are produced by Zola's image pipeline; a JS resizer yields
-  different hashes/bytes, so `news/` index-card `src`s and these files won't match exactly.
+  different hashes/bytes, so `news/index` card `src`s and these files won't match exactly.
+- **`site.css`**: grass (Zola) vs dart-sass produce functionally identical but
+  byte-different compressed CSS.
 - **Docs prev/next on ~9 book pages**: equal-weight sibling order follows Zola's
   non-portable filesystem-walk order (the-renderer/assets, release-builds/profiling). The
   menu is compared order-insensitively; the prev/next footer of the tie-adjacent pages can
-  differ. See TODO in `astro-site/src/lib/docs.ts`.
+  differ. See TODO in `src/lib/docs.ts`.
 - **Generated content** (assets/errors/community/wasm-examples): produced by the
-  `generate-*` programs (ported to TS in `tools/generate-*`), requires network + external
-  repos; not built locally so not in the comparison baseline.
+  `generate-*` programs (ported to TS in place), requires network + external repos; not
+  built locally so not in the comparison baseline.
 
 ## Result
 
-Validated with `node tools/compare.mjs /tmp/zola-baseline astro-site/dist`
-(reference = `zola build`):
+Validated with `node tools/compare.mjs /tmp/zola-baseline dist` (reference = `zola build`):
 
-- **1072 / 1083 output files structurally identical.**
-- 0 files only-in-astro; 1 only-in-zola (`search_index.en.js`).
-- The 11 differing + 1 missing files are ALL the documented cross-engine limitations:
-  9 book pages (prev/next filesystem-order ties), `news/index.html`
-  (resize_image thumbnail hashes), `site.css` (grass vs dart-sass), and the
-  elasticlunr `search_index.en.js`. Every other page, the atom feed, sitemap,
-  robots.txt, redirects, colocated assets, data files and static assets match.
+- **1071 / 1084 output files structurally identical.**
+- 0 files only-in-zola and 0 only-in-astro — every file Zola emits is produced.
+- The 13 differing files are ALL the documented cross-engine differences above:
+  9 book pages (prev/next filesystem-order ties), `news/index.html` (resize_image thumbnail
+  hashes), `site.css` (grass vs dart-sass), `search_index.en.js` and `elasticlunr.min.js`
+  (npm-sourced elasticlunr). Every other page, the atom feed, sitemap, robots.txt,
+  redirects, colocated assets, data files and static assets match.
 
-Build: `cd astro-site && npm run build` (Astro build → `scripts/postbuild.mjs`:
-minify, copy colocated/section assets, compile sass, emit redirects).
-Compare:  `node tools/compare.mjs /tmp/zola-baseline astro-site/dist`.
+Build: `npm run build` → `dist/` (Astro build → `scripts/postbuild.mjs`: minify, copy
+colocated/section assets, compile sass, emit redirects, build search index).
+Compare:  `node tools/compare.mjs /tmp/zola-baseline dist`.
 
-All 6 Rust crates are ported to TypeScript under `tools/` (generate-assets,
+All 6 Rust crates are ported to TypeScript in place (generate-assets,
 generate-community, generate-errors, generate-release, write-rustdoc-hide-lines,
-learning-code-examples), each validated against the Rust original where local
-data allowed; network-bound fetch paths are documented per-crate README.
+learning-code-examples — each directory now holds the TS port), each validated against
+the Rust original where local data allowed; network-bound fetch paths are documented
+per-crate README.
 
-Note: content frontmatter was NOT rewritten — `astro-site/src/lib/content.ts`
+Note: content frontmatter was NOT rewritten — `src/lib/content.ts`
 parses the existing Zola TOML `+++` frontmatter directly, so the conversion is
 non-destructive to `content/`.
