@@ -309,6 +309,18 @@ export function loadData(relPath: string): any {
   return raw;
 }
 
+// Resolve a Zola internal link target `path/to/file.md[#anchor]` (the part after `@/`)
+// to the destination page's permalink (+ anchor).
+export function internalLinkUrl(target: string): string | undefined {
+  const hashIdx = target.indexOf("#");
+  const filePart = hashIdx >= 0 ? target.slice(0, hashIdx) : target;
+  const anchor = hashIdx >= 0 ? target.slice(hashIdx) : "";
+  const { all } = loadContent();
+  const node = all.find((n) => n.relativePath === filePart);
+  if (!node) return undefined;
+  return node.permalink + anchor;
+}
+
 export function fileExists(relPath: string): boolean {
   try {
     statSync(join(REPO_ROOT, relPath));

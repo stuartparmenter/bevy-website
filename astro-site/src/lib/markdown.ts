@@ -15,10 +15,10 @@ import { gfmStrikethroughFromMarkdown } from "mdast-util-gfm-strikethrough";
 import { gfmTableFromMarkdown } from "mdast-util-gfm-table";
 import { gfmTaskListItemFromMarkdown } from "mdast-util-gfm-task-list-item";
 import { gfmFootnoteFromMarkdown } from "mdast-util-gfm-footnote";
-import rehypeRaw from "rehype-raw";
 import rehypeStringify from "rehype-stringify";
 import { visit } from "unist-util-visit";
 import { slugify } from "./slugify.ts";
+import { internalLinkUrl } from "./content.ts";
 import { expandShortcodes, setMarkdownRenderer, type ShortcodeContext } from "./shortcodes.ts";
 
 // GFM features matching pulldown-cmark's enabled set: tables, strikethrough, task
@@ -134,6 +134,11 @@ function remarkResolveLinks(permalink: string) {
   const isRelative = (u: string) =>
     u && !/^[a-z][a-z0-9+.-]*:/i.test(u) && !u.startsWith("/") && !u.startsWith("//");
   const resolve = (u: string) => {
+    // Zola internal links: @/path/to/file.md[#anchor] -> that page's permalink.
+    if (u.startsWith("@/")) {
+      const resolved = internalLinkUrl(u.slice(2));
+      if (resolved) return resolved;
+    }
     let v = u;
     if (v.startsWith("./")) v = v.slice(2);
     return isRelative(v) ? permalink + v : v;
@@ -147,18 +152,14 @@ function remarkResolveLinks(permalink: string) {
   };
 }
 
-// Rehype: replace the `<!-- more -->` comment with a block-level continue-reading span
-// (pulldown-cmark/Zola insert it at block level, not wrapped in a paragraph).
+// Rehype: replace the `<!-- more -->` raw comment with the continue-reading span. Raw
+// HTML is emitted verbatim (no rehype-raw), matching pulldown-cmark, so the marker is a
+// `raw` node whose string value we rewrite.
 function rehypeContinueReading() {
   return (tree: any) => {
-    visit(tree, "comment", (node: any, index: number | undefined, parent: any) => {
-      if (parent && typeof index === "number" && /^\s*more\s*$/.test(node.value)) {
-        parent.children[index] = {
-          type: "element",
-          tagName: "span",
-          properties: { id: "continue-reading" },
-          children: [],
-        };
+    visit(tree, "raw", (node: any) => {
+      if (/^<!--\s*more\s*-->$/.test(node.value.trim())) {
+        node.value = '<span id="continue-reading"></span>';
       }
     });
   };
@@ -214,7 +215,6 @@ function renderToHtml(src: string, ctx: ShortcodeContext, toc: TocEntry[], ptRef
     .use(remarkGfmNoAutolink)
     .use(remarkResolveLinks, ctx.permalink)
     .use(remarkRehype, { allowDangerousHtml: true })
-    .use(rehypeRaw)
     .use(rehypeContinueReading)
     .use(rehypeZolaCode)
     .use(rehypeHeadings, {
