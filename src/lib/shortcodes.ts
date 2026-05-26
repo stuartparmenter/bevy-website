@@ -115,8 +115,14 @@ const INLINE: Record<string, InlineFn> = {
   curly_open: () => "{",
   curly_close: () => "}",
 
+  // Inlined from the former templates/shortcodes/support_bevy.md.
   support_bevy: () =>
-    readShortcodeMd("support_bevy"),
+    `## Support Bevy
+
+Bevy will always be free and open-source, but it isn't free to make! Because Bevy is free, we rely on the generosity of the Bevy community to fund our efforts. If you are a happy user of Bevy or you believe in our mission, please consider [donating to the Bevy Foundation](/donate)... every bit helps!
+
+<a class="button button--pink" href="/donate">Donate <img class="button__icon" src="/assets/heart.svg" alt="heart icon"></a>
+`,
 
   heading_metadata: (a) => {
     const authors: string[] = a.authors || [];
@@ -301,9 +307,6 @@ function headingMetaAreas(areas: string[], prs: (string | number)[]): string {
   );
 }
 
-function readShortcodeMd(name: string): string {
-  return readFileSync(join(REPO_ROOT, "templates/shortcodes", name + ".md"), "utf8");
-}
 
 function extractAnchor(code: string, anchor: string): string {
   const lines = code.split("\n");
