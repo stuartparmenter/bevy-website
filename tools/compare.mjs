@@ -169,6 +169,27 @@ function diffTree(a, b, path, diffs) {
 
 // Both are truncated (trailing "…") whitespace-variant summaries of the same content;
 // accept when the shorter, whitespace-collapsed text is a prefix of the longer.
+// Canonicalize order-insensitive collection files (returns null for everything else).
+function canonCollection(rel, text) {
+  const base = rel.split("/").pop();
+  if (base === "robots.txt") {
+    return text.split("\n").map((l) => l.trim()).filter(Boolean).sort().join("\n");
+  }
+  // normXml: decode entities, collapse whitespace, and drop insignificant whitespace
+  // between tags (embedded HTML content carries an engine-specific trailing newline).
+  const normXml = (s) => normWS(decodeEntities(s)).replace(/>\s+</g, "><");
+  if (base === "sitemap.xml") {
+    const blocks = [...text.matchAll(/<url>[\s\S]*?<\/url>/g)].map((m) => normXml(m[0])).sort();
+    return blocks.join("\n");
+  }
+  if (base === "atom.xml") {
+    const entries = [...text.matchAll(/<entry[\s\S]*?<\/entry>/g)].map((m) => normXml(m[0])).sort();
+    const header = normXml(text.replace(/<entry[\s\S]*?<\/entry>/g, ""));
+    return header + "\n" + entries.join("\n");
+  }
+  return null;
+}
+
 function decodeEntities(s) {
   // Iteratively decode, tolerating the semicolon-less forms minify-html can emit
   // (e.g. `&amp;lt;` -> `&amplt;`).
@@ -268,8 +289,11 @@ for (const rel of [...all].sort()) {
       if (diffs.length) fileDiffs.push({ rel, diffs });
       else matched++;
     } else if (TEXT_EXT.has(ext)) {
-      const za = normWS(readFileSync(zp, "utf8"));
-      const aa = normWS(readFileSync(ap, "utf8"));
+      // robots.txt / sitemap.xml / atom.xml are semantically unordered collections whose
+      // record order follows Zola's filesystem walk; compare them as entity-normalized,
+      // order-insensitive record sets.
+      const za = canonCollection(rel, readFileSync(zp, "utf8")) ?? normWS(readFileSync(zp, "utf8"));
+      const aa = canonCollection(rel, readFileSync(ap, "utf8")) ?? normWS(readFileSync(ap, "utf8"));
       if (za !== aa) fileDiffs.push({ rel, diffs: [`text differs (len ${za.length} vs ${aa.length})`] });
       else matched++;
     } else if (BINARY_EXT.has(ext)) {
