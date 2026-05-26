@@ -48,11 +48,31 @@ features). Frontmatter may change; Tera templates → Astro components; Rust gen
   reshaping) are done via committed scripts in `tools/`, never by hand-editing many
   files. Scripts must be idempotent and re-runnable.
 
-## Layout
+## Layout (after cutover)
 
-- `astro-site/`  Astro project (new)
-- `tools/`       comparison + helper scripts
-- Zola files remain in place for reference/validation during migration.
+- repo root = the Astro project (`astro.config.mjs`, `package.json`, `src/`, `scripts/`).
+- `content/`, `static/`, `sass/`, `release-content/`, `learning-code-examples/examples/`
+  are consumed by the build (kept from the original site).
+- `generate-*/`, `write-rustdoc-hide-lines/`, `learning-code-examples/` now hold the
+  **TypeScript** ports (the Rust crates were replaced in place).
+- `tools/compare.mjs` — the structural comparison harness.
+- Zola-only files (`config.toml`, `templates/`, `syntaxes/`, `.djlintrc`, `rustfmt.toml`,
+  `Cargo.*`) were removed.
+
+Build: `npm run build` → `dist/`.  Compare: `node tools/compare.mjs /tmp/zola-baseline dist`.
+
+## Cutover status / remaining for production
+
+Done: Astro at repo root; Rust→TS in place; Zola files removed; `deploy.yml` and the key
+`ci.yml` jobs (`check-hide-lines`, `build-website`) switched to Node/Astro.
+
+Remaining for a fully green pipeline (functional, beyond structural parity):
+- `ci.yml`: the `lint-tools`/`test-crates` jobs and the `generate-*` jobs still assume the
+  Rust toolchain — convert to Node (run the TS ports / `tsc`).
+- **Search**: `search_index.en.js` (Zola elasticlunr index) is not produced — wire up a
+  search-index generator if search must keep working.
+- **News thumbnails**: `resize_image` produced hashed `processed_images/*`; decide on an
+  Astro image-processing step (or accept different filenames).
 
 ## Known cross-engine limitations (cannot byte/structurally match)
 

@@ -13,6 +13,14 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm ci
+
       - name: Get current date
         id: date
         run: echo "date=$(date +'%Y-%m-%d')" >> $GITHUB_OUTPUT
@@ -44,19 +52,21 @@ jobs:
       - name: "Sync Donor Info"
         run: cd content/donate && ./sync_donors.sh
 
-      - name: "Build and deploy website"
+      - name: "Build website (Astro)"
+        run: npm run build
+
+      - name: "Deploy website"
         if: github.repository_owner == 'bevyengine'
-        # When updating to a newer version, remember to also update it
-        # in the contribution guide & readme
-        uses: shalzz/zola-deploy-action@v0.19.2
-        env:
-          PAGES_BRANCH: gh-pages
-          BUILD_DIR: .
-          TOKEN: ${{ secrets.CART_PAT }}
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          personal_token: ${{ secrets.CART_PAT }}
+          publish_branch: gh-pages
+          publish_dir: ./dist
+          cname: bevy.org
 
       # Caches output of generate-assets for use in ci.yml
       - name: Update generate-assets cache
         uses: actions/cache/save@v4
         with:
           path: content/assets
-          key: assets-${{ steps.date.outputs.date }}-${{ hashFiles('generate-assets/**/*.rs', 'generate-assets/Cargo.toml', 'generate-assets/generate_assets.sh') }}
+          key: assets-${{ steps.date.outputs.date }}-${{ hashFiles('generate-assets/**/*.ts', 'generate-assets/package.json', 'generate-assets/generate_assets.sh') }}

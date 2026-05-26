@@ -33,11 +33,13 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
 
       - name: Check hide-lines
-        run: cd write-rustdoc-hide-lines && cargo run --release -- check ../content
+        run: cd write-rustdoc-hide-lines && node --experimental-strip-types src/main.ts check ../content
 
   lint-tools:
     runs-on: ubuntu-latest
@@ -260,10 +262,13 @@ jobs:
           name: generated-community
           path: content/community/people
 
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm ci
+
       - name: "Build website"
-        uses: shalzz/zola-deploy-action@v0.19.2
-        env:
-          PAGES_BRANCH: gh-pages
-          BUILD_DIR: .
-          BUILD_ONLY: true
-          TOKEN: fake-secret
+        run: npm run build
