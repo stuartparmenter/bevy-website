@@ -170,10 +170,19 @@ function diffTree(a, b, path, diffs) {
 // Both are truncated (trailing "…") whitespace-variant summaries of the same content;
 // accept when the shorter, whitespace-collapsed text is a prefix of the longer.
 function decodeEntities(s) {
-  return s
-    .replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"').replace(/&#x?[0-9a-fA-F]+;/g, "")
-    .replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">");
+  // Iteratively decode, tolerating the semicolon-less forms minify-html can emit
+  // (e.g. `&amp;lt;` -> `&amplt;`).
+  let prev;
+  do {
+    prev = s;
+    s = s
+      .replace(/&amp;?/g, "&")
+      .replace(/&lt;?/g, "<")
+      .replace(/&gt;?/g, ">")
+      .replace(/&quot;?/g, '"')
+      .replace(/&#x?[0-9a-fA-F]+;?/g, "");
+  } while (s !== prev);
+  return s;
 }
 function descPrefixMatch(a, b) {
   if (a == null || b == null) return false;

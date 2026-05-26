@@ -197,6 +197,21 @@ function extractAnchor(code: string, anchor: string): string {
   return out;
 }
 
+// Remove the common leading indentation from a shortcode body so that markdown nested
+// inside indented blocks (e.g. a callout inside <details>) isn't misread as an indented
+// code block — matching Zola's rendering of `{% block %}` bodies.
+function dedent(body: string): string {
+  const lines = body.split("\n");
+  let min = Infinity;
+  for (const line of lines) {
+    if (!line.trim()) continue;
+    const indent = line.match(/^[ \t]*/)![0].length;
+    if (indent < min) min = indent;
+  }
+  if (!isFinite(min) || min === 0) return body;
+  return lines.map((l) => l.slice(min)).join("\n");
+}
+
 // ---- expander ----
 export function expandShortcodes(src: string, ctx: ShortcodeContext): string {
   let out = src;
@@ -207,7 +222,7 @@ export function expandShortcodes(src: string, ctx: ShortcodeContext): string {
     (m, name: string, argStr: string, body: string) => {
       const fn = BLOCK[name];
       if (!fn) return m;
-      return fn(parseArgs(argStr), body, ctx);
+      return fn(parseArgs(argStr), dedent(body), ctx);
     }
   );
 
