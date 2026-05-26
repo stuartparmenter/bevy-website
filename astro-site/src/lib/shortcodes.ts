@@ -33,6 +33,17 @@ function escapeHtml(s: string): string {
     .replace(/"/g, "&quot;");
 }
 
+// Matches Tera's `escape` filter (escape_html), which also escapes ' and /.
+function teraEscape(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#x27;")
+    .replace(/\//g, "&#x2F;");
+}
+
 // ---- argument parsing ----
 // Handles key="str", key='str', key=123, key=true, key=[a, b], comma-separated.
 function parseArgs(raw: string): Record<string, any> {
@@ -200,7 +211,7 @@ const INLINE: Record<string, InlineFn> = {
     return out.join("\n\n");
   },
 
-  changelog: (a) => {
+  changelog: (a, ctx) => {
     const data = loadData(`release-content/${a.version}/changelog.toml`);
     const out: string[] = [];
     out.push("## Full Changelog");
@@ -212,7 +223,10 @@ const INLINE: Record<string, InlineFn> = {
       out.push(name ? `### ${name}` : "### No area label");
       let ul = '<ul class="pr-list">\n';
       for (const pr of area.prs) {
-        ul += `<li class="pr-list__item"><a href="https://github.com/bevyengine/bevy/pull/${pr.number}">${escapeHtml(pr.title)}</a></li>\n`;
+        // Zola renders `pr.title | escape | markdown`, wrapping it in <p> and rendering
+        // inline markdown (e.g. `code`).
+        const title = md(teraEscape(pr.title), ctx).trim();
+        ul += `<li class="pr-list__item"><a href="https://github.com/bevyengine/bevy/pull/${pr.number}">${title}</a></li>\n`;
       }
       ul += "</ul>";
       out.push(ul);

@@ -303,6 +303,9 @@ export function truncate(s: string, length: number): string {
 // the surrounding HTML block and the rest would be re-parsed as markdown. (Zola's syntect
 // output has no truly-blank lines, so it doesn't hit this.)
 setMarkdownRenderer((src, ctx) => {
-  const html = renderToHtml(src, ctx, [], { text: "" }, { nested: true });
+  // Zola's `markdown` filter expands shortcodes as part of rendering, so nested bodies
+  // (e.g. a release note containing compare_slider) must be expanded here too.
+  const expanded = expandShortcodes(src, ctx);
+  const html = renderToHtml(expanded, ctx, [], { text: "" }, { nested: true });
   return html.replace(/<pre(\s|>)/g, "\n\n<pre$1").replace(/<\/pre>/g, "</pre>\n\n");
 });
