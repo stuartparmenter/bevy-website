@@ -1,0 +1,83 @@
+---
+// Mirrors templates/sponsors.html
+import { loadData } from "../lib/content.ts";
+const donors = loadData("content/donate/donors.toml");
+const tiers = loadData("content/donate/tiers.toml");
+const donorList: any[] = donors.donor || [];
+const hasActiveDonor = donorList.some((d) => !d.past);
+
+const tierList: any[] = tiers.tier || [];
+// Iterate tiers reversed; for each, collect non-past donors in [tier.amount, nextTier.amount).
+const reversed = [...tierList].reverse();
+const sections: { tier: any; donors: any[] }[] = [];
+reversed.forEach((tier, i) => {
+  if (!tier.reward_logo && !tier.reward_link && !tier.reward_name) return;
+  const nextTierIndex = tierList.length - i; // Tera nth(n=...) is 0-based on the original array
+  const nextTier = tierList[nextTierIndex];
+  const inTier: any[] = [];
+  for (const donor of donorList) {
+    if (donor.past) continue;
+    if (donor.amount >= tier.amount) {
+      if (nextTier && donor.amount >= nextTier.amount) continue;
+      inTier.push(donor);
+    }
+  }
+  if (inTier.length) sections.push({ tier, donors: inTier });
+});
+
+function logoHeight(tier: any, donor: any): number {
+  let h = tier.logo_height;
+  if (donor.square_logo) h = h * 2.0;
+  if (donor.logo_scale) h = h * donor.logo_scale;
+  return h;
+}
+
+const pastDonors = donorList
+  .filter((d) => d.past && d.name)
+  .sort((a, b) => a.amount - b.amount)
+  .reverse();
+const tierClass = (name: string) => "sponsors--" + name.replace(/ /g, "_").toLowerCase();
+---
+<h2 class="donate-header-padding">Bevy Supporters</h2>
+{!hasActiveDonor && (
+  <div class="credits-text">
+    There are no Bevy Foundation supporters yet that qualify to be in the credits. <a href="/donate">You could be the first</a>!
+  </div>
+)}
+<div class="sponsors-section">
+{sections.map(({ tier, donors: inTier }) => (
+  <div class={`sponsors ${tierClass(tier.name)}`}>
+    <h2 class="sponsors__title">{tier.name}</h2>
+    <h3 class="sponsors__amount">${tier.amount} / month</h3>
+    <div class="sponsors__content">
+      {inTier.map((donor) =>
+        tier.reward_logo && donor.logo ? (
+          <a class="sponsors__link" href={donor.link || undefined}>
+            <img
+              class="sponsors__logo"
+              height={logoHeight(tier, donor)}
+              style={donor.style || undefined}
+              src={`/assets/donor_logos/${donor.logo}`}
+              alt={donor.name ? `${donor.name} logo` : `${donor.logo.split(".")[0]} logo`}
+            />
+          </a>
+        ) : tier.reward_link && donor.name ? (
+          <a class="sponsors__name sponsors__link" href={donor.link || undefined}>{donor.name}</a>
+        ) : tier.reward_name && donor.name ? (
+          <div class="sponsors__name">{donor.name}</div>
+        ) : null
+      )}
+    </div>
+  </div>
+))}
+{pastDonors.length > 0 && (
+  <>
+    <h2 class="past-donors-title">Past Donors</h2>
+    <div class="past-donor">
+      {pastDonors.map((donor, i) => (
+        <Fragment set:html={donor.name.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/ /g, "&nbsp;") + (i < pastDonors.length - 1 ? "," : "")} />
+      ))}
+    </div>
+  </>
+)}
+</div>
