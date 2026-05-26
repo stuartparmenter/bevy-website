@@ -1,0 +1,144 @@
+---
+import type { Node } from "../lib/content.ts";
+import {
+  PLAUSIBLE_SCRIPT, SHOW_DRAFTS_SCRIPT,
+  pageHeaderMessage, pageTitle, HEADER_ITEMS, headerItem, footerLinks, isNoindex,
+} from "../lib/layout.ts";
+
+interface Props {
+  node?: Node;
+  currentPath?: string;
+  themeClass?: string;
+  mainMenuExtraClass?: string;
+  /** og:description override; falls back to base.html logic */
+  ogDescription?: string;
+  /** override page title (else computed from node) */
+  title?: string;
+  ancestorIsPublicDraft?: boolean;
+}
+
+const {
+  node,
+  currentPath = node?.path ?? "/",
+  themeClass,
+  mainMenuExtraClass = "",
+  ogDescription,
+  title,
+  ancestorIsPublicDraft = false,
+} = Astro.props as Props;
+
+const ptitle = title ?? pageTitle(node);
+const ex = node?.extra ?? {};
+const path = node ? node.path : "";
+const ogImage = ex.image
+  ? `https://bevy.org${currentPath}${ex.image}`
+  : "https://bevy.org/assets/bevy_logo_fill.png";
+const ogDesc =
+  ogDescription ??
+  (node?.description
+    ? node.description
+    : "Bevy is a refreshingly simple data-driven game engine built in Rust. It is free and open-source forever!");
+const noindex = isNoindex(node, ancestorIsPublicDraft);
+const draftPrefix = ex.public_draft ? "[DRAFT] " : "";
+const headerMsg = pageHeaderMessage(node);
+const items = HEADER_ITEMS.map((i) => headerItem(i, currentPath));
+const fLinks = footerLinks();
+const mainMenuClass = ("header__menu main-menu " + mainMenuExtraClass).trim();
+---
+<!DOCTYPE html>
+<html lang="en" class={themeClass || undefined}>
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta property="og:title" content={ptitle} />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content={`https://bevy.org${path}`} />
+    <meta property="og:image" content={ogImage} />
+    <meta property="og:description" content={ogDesc} />
+    <link rel="shortcut icon" type="image/png" href="/assets/favicon.png">
+    <link rel="stylesheet" href="/site.css" />
+    <link href="/atom.xml" rel="alternate" type="application/atom+xml" />
+    {noindex && <meta name="robots" content="noindex, nofollow, noarchive" />}
+    <title>{draftPrefix}{ptitle}</title>
+    <slot name="head_extensions" />
+    <script async src="https://plausible.io/js/pa-Y3chmKZU0FVsmsgC432RR.js"></script>
+    <script is:inline set:html={PLAUSIBLE_SCRIPT}></script>
+  </head>
+  <body>
+    <div class="layout">
+      <input id="mobile-menu-state" class="hidden" type="checkbox">
+      <header class="layout__header header print:hidden" data-mobile-menu-state-container>
+        <div class="header__content">
+          <label class="main-menu-backdrop" for="mobile-menu-state"></label>
+          <label class="header__hamburger button-square button-square--header" for="mobile-menu-state">
+            <img src="/assets/icon-hamburger.svg" alt="Three horizontal lines stacked on top of eachother" width="20" height="16">
+          </label>
+          <div class="header__left-block">
+            <a class="header__logo" href="/">
+              <picture class="logo">
+                <img src="/assets/bevy_logo_dark.svg" class="logo" alt="Bevy logo" width="520" height="130" />
+              </picture>
+            </a>
+            <div class="header__message">{headerMsg}</div>
+          </div>
+          <slot name="mobile_page_menu_state" />
+          <nav class={mainMenuClass} role="navigation" data-page-menu-switch-state-container>
+            <div class="main-menu__header">
+              <a href="/">
+                <picture class="logo">
+                  <img class="logo" src="/assets/bevy_logo_dark.svg" alt="Bevy Engine" width="520" height="130" />
+                </picture>
+              </a>
+              <label class="button-square button-square--header" for="mobile-menu-state">
+                <img src="/assets/icon-times.svg" alt="A saltire or x-cross" width="16" height="16">
+              </label>
+            </div>
+            <slot name="mobile_page_menu_switch" />
+            <div class="main-menu__content">
+              <div class="main-menu__page-menu">
+                <slot name="mobile_page_menu" />
+              </div>
+              <ul class="main-menu__menu">
+                {items.map((it) => (
+                  <li class={`main-menu__entry ${it.extraClass}`.trim()}>
+                    <a href={it.href} class={it.active ? "main-menu__link main-menu__link--active" : "main-menu__link"}>
+                      <span>{it.name}</span>
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </nav>
+          <div class="header__cta-container">
+            <a class="button button--pink header__cta" href="/donate">Donate
+              <img class="button__icon" src="/assets/heart.svg" alt="heart icon" width="512" height="512" />
+            </a>
+            <a class="header__cta header__cta--github" href="https://github.com/bevyengine/bevy">
+              <img src="/assets/github-mark-white.svg" alt="GitHub repo" width="98" height="96" />
+            </a>
+          </div>
+        </div>
+      </header>
+      <main class="layout__content">
+        <div class="container">
+          <slot name="draft_warning" />
+          <slot />
+        </div>
+      </main>
+      <footer class="print:hidden">
+        <slot name="footer_extensions" />
+        <div class="footer__social-container">
+          {fLinks.map((link) => (
+            <a class="footer__social" href={link.url} title={link.title}>
+              <img src={link.image} alt={link.image_alt} width="24" height="24" />
+            </a>
+          ))}
+          <a class="footer__social" href="/atom.xml" title="Bevy news feed">
+            <img src="/assets/feed.svg" alt="Bevy news feed" width="24" height="24" />
+          </a>
+        </div>
+      </footer>
+    </div>
+    <script is:inline set:html={SHOW_DRAFTS_SCRIPT}></script>
+  </body>
+</html>

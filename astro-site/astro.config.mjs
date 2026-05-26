@@ -4,6 +4,8 @@ import { defineConfig } from "astro/config";
 // (the structural comparator normalizes whitespace, so leaving HTML readable aids debugging).
 export default defineConfig({
   site: "https://bevy.org",
+  // Zola copies static/ verbatim to the output root; reuse it directly as Astro's publicDir.
+  publicDir: "../static",
   trailingSlash: "ignore",
   build: {
     format: "directory",
