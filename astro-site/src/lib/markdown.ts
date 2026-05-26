@@ -45,6 +45,19 @@ function hastText(node: any): string {
   return "";
 }
 
+// Rehype: convert table cell `align` attributes to `style="text-align:…"`, matching
+// pulldown-cmark (remark-rehype emits the deprecated `align` attribute instead).
+function rehypeTableAlign() {
+  return (tree: any) => {
+    visit(tree, "element", (node: any) => {
+      if ((node.tagName === "th" || node.tagName === "td") && node.properties && node.properties.align) {
+        node.properties.style = `text-align: ${node.properties.align}`;
+        delete node.properties.align;
+      }
+    });
+  };
+}
+
 // Rehype: rewrite <pre><code class="language-X"> to Zola's wrapper attributes.
 function rehypeZolaCode() {
   return (tree: any) => {
@@ -262,6 +275,7 @@ function renderToHtml(
     .use(remarkResolveLinks, { permalink: ctx.permalink, nested: opts.nested })
     .use(remarkRehype, { allowDangerousHtml: true })
     .use(rehypeContinueReading)
+    .use(rehypeTableAlign)
     .use(rehypeZolaCode)
     .use(rehypeHeadings, {
       insertAnchor: opts.nested ? undefined : ctx.insertAnchorLinks,
@@ -282,5 +296,13 @@ export function truncate(s: string, length: number): string {
   return chars.slice(0, length).join("") + "…";
 }
 
-// Provide the nested renderer to the shortcode module (for `body | markdown`).
-setMarkdownRenderer((src, ctx) => renderToHtml(src, ctx, [], { text: "" }, { nested: true }));
+// Provide the nested renderer to the shortcode module (for `body | markdown`). Its HTML
+// output is embedded into the page markdown and re-parsed; isolate <pre> blocks with
+// blank lines so they parse as CommonMark "type 1" HTML blocks (which run to </pre> and
+// ignore internal blank lines). Otherwise a blank line inside a code block would close
+// the surrounding HTML block and the rest would be re-parsed as markdown. (Zola's syntect
+// output has no truly-blank lines, so it doesn't hit this.)
+setMarkdownRenderer((src, ctx) => {
+  const html = renderToHtml(src, ctx, [], { text: "" }, { nested: true });
+  return html.replace(/<pre(\s|>)/g, "\n\n<pre$1").replace(/<\/pre>/g, "</pre>\n\n");
+});

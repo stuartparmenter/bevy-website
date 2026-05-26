@@ -335,13 +335,19 @@ export function expandShortcodes(src: string, ctx: ShortcodeContext): string {
     }
   );
 
-  // Inline shortcodes: {{ name(args) }}
+  // Inline shortcodes: {{ name(args) }}. When the invocation is alone on its line (Zola's
+  // block context), surround its output with blank lines so block-level markdown it emits
+  // (headings, HTML blocks) is parsed correctly and doesn't get glued to its neighbours.
   out = out.replace(
     /\{\{\s*([a-z_]+)\s*\(([\s\S]*?)\)\s*\}\}/g,
-    (m, name: string, argStr: string) => {
+    (m, name: string, argStr: string, offset: number, full: string) => {
       const fn = INLINE[name];
       if (!fn) return m;
-      return fn(parseArgs(argStr), ctx);
+      const result = fn(parseArgs(argStr), ctx);
+      const before = full.slice(0, offset);
+      const after = full.slice(offset + m.length);
+      const aloneOnLine = /(^|\n)[ \t]*$/.test(before) && /^[ \t]*(\n|$)/.test(after);
+      return aloneOnLine ? `\n\n${result}\n\n` : result;
     }
   );
 
