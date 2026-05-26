@@ -158,6 +158,82 @@ const INLINE: Record<string, InlineFn> = {
     );
   },
 
+  // release-content shortcodes (templates/shortcodes/{migration_guides,release_notes,
+  // changelog,contributors}.md). These emit markdown (re-rendered by the page); a couple
+  // embed pre-rendered HTML via Zola's `| markdown` filter (nested render).
+  migration_guides: (a) => {
+    const base = `release-content/${a.version}/migration-guides`;
+    const data = loadData(`${base}/_guides.toml`);
+    const out: string[] = [];
+    out.push(
+      `<aside class="callout callout--warning">\n  <p>Bevy relies heavily on improvements in the Rust language and compiler. As a result, the Minimum Supported Rust Version (MSRV) is "the latest stable release" of Rust.</p>\n</aside>`
+    );
+    out.push(`<div class="migration-guide">`);
+    let previousArea = "";
+    for (const guide of data.guides) {
+      const areaName = guide.areas && guide.areas[0] ? guide.areas[0] : "Without area";
+      const areaChanged = areaName !== previousArea;
+      if (areaChanged) {
+        previousArea = areaName;
+        out.push(`## ${areaName}`);
+      } else {
+        out.push(`<hr>`);
+      }
+      out.push(`### ${guide.title}`);
+      out.push(headingMetaAreas(guide.areas || [], guide.prs || []));
+      out.push(loadData(`${base}/${guide.file_name}`));
+    }
+    out.push(`</div>`);
+    return out.join("\n\n");
+  },
+
+  release_notes: (a, ctx) => {
+    const base = `release-content/${a.version}/release-notes`;
+    const data = loadData(`${base}/_release-notes.toml`);
+    const out: string[] = [];
+    for (const note of data.release_notes) {
+      out.push(`## ${note.title}`);
+      out.push(headingMetaAuthors(note.authors || [], note.prs || []));
+      const body = (loadData(`${base}/${note.file_name}`) as string).split("POST_PATH").join(ctx.colocatedPath);
+      out.push(md(body, ctx));
+    }
+    return out.join("\n\n");
+  },
+
+  changelog: (a) => {
+    const data = loadData(`release-content/${a.version}/changelog.toml`);
+    const out: string[] = [];
+    out.push("## Full Changelog");
+    out.push(
+      "The changes mentioned above are only the most appealing, highest impact changes that we've made this cycle.\nInnumerable bug fixes, documentation changes and API usability tweaks made it in too.\nFor a complete list of changes, check out the PRs listed below."
+    );
+    for (const area of data.areas) {
+      const name = area.name && area.name.length ? area.name.join(" + ") : "";
+      out.push(name ? `### ${name}` : "### No area label");
+      let ul = '<ul class="pr-list">\n';
+      for (const pr of area.prs) {
+        ul += `<li class="pr-list__item"><a href="https://github.com/bevyengine/bevy/pull/${pr.number}">${escapeHtml(pr.title)}</a></li>\n`;
+      }
+      ul += "</ul>";
+      out.push(ul);
+    }
+    return out.join("\n\n");
+  },
+
+  contributors: (a) => {
+    const data = loadData(`release-content/${a.version}/contributors.toml`);
+    const out: string[] = [];
+    out.push("## Contributors");
+    out.push(
+      `A huge thanks to the ${data.contributors.length} contributors that made this release (and associated docs) possible! In random order:`
+    );
+    let ul = '<ul class="contributors">\n';
+    for (const c of data.contributors) ul += `<li>${c.name}</li>\n`;
+    ul += "</ul>";
+    out.push(ul);
+    return out.join("\n\n");
+  },
+
   file_code_block: (a) => {
     const language = a.language || "rs";
     const full = join(REPO_ROOT, "learning-code-examples/examples/", a.file);
@@ -177,6 +253,39 @@ const BLOCK: Record<string, BlockFn> = {
   incorrect_code_block: (a, body, ctx) =>
     `<div class="incorrect"><div class="incorrect-image"><img src="/assets/error_icon.svg" alt="This code is invalid" title="This code is invalid" width="82" height="82" /></div>${md(body, ctx)}</div>`,
 };
+
+// heading-meta block for release notes (Authors + PRs), matching release_notes.md.
+function headingMetaAuthors(authors: string[], prs: (string | number)[]): string {
+  const a = authors
+    .map((author, i) => {
+      const item = author.startsWith("@")
+        ? `<a href="https://github.com/${author.replace(/^@/, "")}" class="heading-meta__item">${author}</a>`
+        : `<span class="heading-meta__item">${author}</span>`;
+      return item + (i < authors.length - 1 ? "," : "");
+    })
+    .join("");
+  const p = prs
+    .map((pr, i) => `<a class="heading-meta__item" href="https://github.com/bevyengine/bevy/pull/${pr}">#${pr}</a>` + (i < prs.length - 1 ? "," : ""))
+    .join("");
+  return (
+    `<div class="heading-meta">\n  <div>\n    <span class="heading-meta__title">Authors:</span>\n    ${a}\n  </div>\n` +
+    `  <div>\n    <span class="heading-meta__title">PRs:</span>\n    ${p}\n  </div>\n</div>`
+  );
+}
+
+// heading-meta block for migration guides (Areas + PRs), matching migration_guides.md.
+function headingMetaAreas(areas: string[], prs: (string | number)[]): string {
+  const a = areas
+    .map((area, i) => `<span class="heading-meta__item">${area}</span>` + (i < areas.length - 1 ? ", " : ". "))
+    .join("");
+  const p = prs
+    .map((pr, i) => `<a class="heading-meta__item" href="https://github.com/bevyengine/bevy/pull/${pr}">#${pr}</a>` + (i < prs.length - 1 ? ", " : ""))
+    .join("");
+  return (
+    `<div class="heading-meta">\n  <div>\n    <span class="heading-meta__title">Areas:</span>\n    ${a}\n  </div>\n` +
+    `  <div>\n    <span class="heading-meta__title"> PRs:</span>\n    ${p}\n  </div>\n</div>`
+  );
+}
 
 function readShortcodeMd(name: string): string {
   return readFileSync(join(REPO_ROOT, "templates/shortcodes", name + ".md"), "utf8");

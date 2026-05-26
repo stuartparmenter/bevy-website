@@ -210,21 +210,12 @@ function rehypeContinueReading() {
   };
 }
 
-// Reproduce striptags() of pulldown-cmark's (un-minified) HTML. remark-rehype already
-// inserts "\n" text nodes between block children, matching pulldown-cmark's per-block
-// newlines, so plain text-node concatenation (void elements contribute nothing) suffices.
-function zolaPlainText(node: any): string {
-  if (node.type === "text") return node.value;
-  if (node.type === "root" || node.type === "element") {
-    return (node.children || []).map(zolaPlainText).join("");
-  }
-  return "";
-}
-
-function rehypePlainText(ref: { text: string }) {
-  return (tree: any) => {
-    ref.text = zolaPlainText(tree);
-  };
+// Reproduce striptags() of pulldown-cmark's (un-minified) HTML by removing tags from the
+// serialized output. This (unlike walking hast text nodes) includes text inside raw-HTML
+// blocks — e.g. the leading callout in a migration-guides page — matching Zola. Entities
+// are preserved here and normalized by the comparator.
+function stripHtmlTags(html: string): string {
+  return html.replace(/<!--[\s\S]*?-->/g, "").replace(/<[^>]*>/g, "");
 }
 
 export interface RenderResult {
@@ -277,10 +268,11 @@ function renderToHtml(
       permalink: ctx.permalink,
       toc,
     })
-    .use(rehypePlainText, ptRef)
     .use(rehypeStringify, { allowDangerousHtml: true, closeSelfClosing: true })
     .processSync(src);
-  return String(file);
+  const html = String(file);
+  ptRef.text = stripHtmlTags(html);
+  return html;
 }
 
 // Truncate like Tera's truncate filter (count chars, append "…" when longer).
