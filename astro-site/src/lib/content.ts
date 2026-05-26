@@ -270,6 +270,19 @@ export function loadContent() {
     s.subsections.sort((a, b) => a.weight - b.weight);
   }
 
+  // Pages inherit insert_anchor_links from their nearest ancestor section (Zola behavior).
+  for (const n of all) {
+    if (n.insertAnchorLinks != null) continue;
+    let p = n.parent;
+    while (p) {
+      if (p.insertAnchorLinks != null) {
+        n.insertAnchorLinks = p.insertAnchorLinks;
+        break;
+      }
+      p = p.parent;
+    }
+  }
+
   const root = sectionByPath.get("/")!;
   _cache = { all, byPath, root };
   return _cache;

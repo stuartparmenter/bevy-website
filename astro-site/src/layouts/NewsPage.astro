@@ -75,7 +75,7 @@ const ogDescription = node.description ?? truncate(rendered.plainText, 150);
       </h2>
       {ex.image && ex.show_image && (
         <div class="media-content news-content news-content__hero-image">
-          <img src={ex.image} alt={ex.image_subtitle || "An image representing the article"} style="aspect-ratio: auto 16 / 9" />
+          <img src={ex.image} alt={ex.image_subtitle || "An image representing the article"} style="aspect-ratio:auto 16/9" />
           {ex.image_subtitle && (
             ex.image_subtitle_link
               ? <div class="news-image-subtitle"><a href={ex.image_subtitle_link}>{ex.image_subtitle}</a></div>

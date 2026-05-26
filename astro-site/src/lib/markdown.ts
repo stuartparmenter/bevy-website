@@ -6,13 +6,36 @@
 
 import { unified } from "unified";
 import remarkParse from "remark-parse";
-import remarkGfm from "remark-gfm";
 import remarkRehype from "remark-rehype";
+import { gfmStrikethrough } from "micromark-extension-gfm-strikethrough";
+import { gfmTable } from "micromark-extension-gfm-table";
+import { gfmTaskListItem } from "micromark-extension-gfm-task-list-item";
+import { gfmFootnote } from "micromark-extension-gfm-footnote";
+import { gfmStrikethroughFromMarkdown } from "mdast-util-gfm-strikethrough";
+import { gfmTableFromMarkdown } from "mdast-util-gfm-table";
+import { gfmTaskListItemFromMarkdown } from "mdast-util-gfm-task-list-item";
+import { gfmFootnoteFromMarkdown } from "mdast-util-gfm-footnote";
 import rehypeRaw from "rehype-raw";
 import rehypeStringify from "rehype-stringify";
 import { visit } from "unist-util-visit";
 import { slugify } from "./slugify.ts";
 import { expandShortcodes, setMarkdownRenderer, type ShortcodeContext } from "./shortcodes.ts";
+
+// GFM features matching pulldown-cmark's enabled set: tables, strikethrough, task
+// lists, footnotes — but NOT autolink literals (pulldown-cmark doesn't autolink bare
+// URLs) and NOT the GFM tagfilter.
+function remarkGfmNoAutolink(this: any) {
+  const data = this.data();
+  const micromarkExtensions = data.micromarkExtensions || (data.micromarkExtensions = []);
+  const fromMarkdownExtensions = data.fromMarkdownExtensions || (data.fromMarkdownExtensions = []);
+  micromarkExtensions.push(gfmStrikethrough(), gfmTable(), gfmTaskListItem(), gfmFootnote());
+  fromMarkdownExtensions.push(
+    gfmStrikethroughFromMarkdown(),
+    gfmTableFromMarkdown(),
+    gfmTaskListItemFromMarkdown(),
+    gfmFootnoteFromMarkdown()
+  );
+}
 
 function hastText(node: any): string {
   if (node.type === "text") return node.value;
@@ -73,7 +96,7 @@ function rehypeHeadings(opts: { insertAnchor?: string; permalink: string; toc: T
       node.properties.id = id;
       flat.push({ id, title, level, permalink: `${opts.permalink}#${id}`, children: [] });
       if (opts.insertAnchor === "right") {
-        node.children.push({ type: "text", value: " " });
+        node.children.push({ type: "text", value: "\n" });
         node.children.push({
           type: "element",
           tagName: "a",
@@ -100,20 +123,23 @@ function rehypeHeadings(opts: { insertAnchor?: string; permalink: string; toc: T
   };
 }
 
-// Rehype: resolve relative URLs (img src, a href, video/source src) against the page
-// permalink, as Zola does for colocated assets / internal links.
-function rehypeResolveLinks(permalink: string) {
-  const attrFor: Record<string, string> = { a: "href", img: "src", source: "src", video: "src", audio: "src" };
+// Remark (mdast): resolve relative URLs of *markdown-native* links/images against the
+// page permalink, as Zola does. Raw-HTML elements (e.g. <video src>) are NOT touched,
+// matching Zola which only resolves markdown link/image syntax. Fragment-only links
+// (`#anchor`) are also resolved to absolute permalinks.
+function remarkResolveLinks(permalink: string) {
   const isRelative = (u: string) =>
-    u && !/^[a-z][a-z0-9+.-]*:/i.test(u) && !u.startsWith("/") && !u.startsWith("#") && !u.startsWith("//");
+    u && !/^[a-z][a-z0-9+.-]*:/i.test(u) && !u.startsWith("/") && !u.startsWith("//");
+  const resolve = (u: string) => {
+    let v = u;
+    if (v.startsWith("./")) v = v.slice(2);
+    return isRelative(v) ? permalink + v : v;
+  };
   return (tree: any) => {
-    visit(tree, "element", (node: any) => {
-      const attr = attrFor[node.tagName];
-      if (!attr || !node.properties) return;
-      let v = node.properties[attr];
-      if (typeof v !== "string") return;
-      if (v.startsWith("./")) v = v.slice(2);
-      if (isRelative(v)) node.properties[attr] = permalink + v;
+    visit(tree, (node: any) => {
+      if ((node.type === "link" || node.type === "image" || node.type === "definition") && typeof node.url === "string") {
+        node.url = resolve(node.url);
+      }
     });
   };
 }
@@ -182,12 +208,12 @@ export function renderMarkdown(body: string, ctx: ShortcodeContext): RenderResul
 function renderToHtml(src: string, ctx: ShortcodeContext, toc: TocEntry[], ptRef: { text: string }): string {
   const file = unified()
     .use(remarkParse)
-    .use(remarkGfm)
+    .use(remarkGfmNoAutolink)
+    .use(remarkResolveLinks, ctx.permalink)
     .use(remarkRehype, { allowDangerousHtml: true })
     .use(rehypeRaw)
     .use(rehypeContinueReading)
     .use(rehypeZolaCode)
-    .use(rehypeResolveLinks, ctx.permalink)
     .use(rehypeHeadings, {
       insertAnchor: ctx.insertAnchorLinks,
       permalink: ctx.permalink,
