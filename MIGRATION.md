@@ -70,6 +70,28 @@ features). Frontmatter may change; Tera templates → Astro components; Rust gen
   `generate-*` programs (ported to TS in `tools/generate-*`), requires network + external
   repos; not built locally so not in the comparison baseline.
 
-## Progress
+## Result
 
-(see task list)
+Validated with `node tools/compare.mjs /tmp/zola-baseline astro-site/dist`
+(reference = `zola build`):
+
+- **1072 / 1083 output files structurally identical.**
+- 0 files only-in-astro; 1 only-in-zola (`search_index.en.js`).
+- The 11 differing + 1 missing files are ALL the documented cross-engine limitations:
+  9 book pages (prev/next filesystem-order ties), `news/index.html`
+  (resize_image thumbnail hashes), `site.css` (grass vs dart-sass), and the
+  elasticlunr `search_index.en.js`. Every other page, the atom feed, sitemap,
+  robots.txt, redirects, colocated assets, data files and static assets match.
+
+Build: `cd astro-site && npm run build` (Astro build → `scripts/postbuild.mjs`:
+minify, copy colocated/section assets, compile sass, emit redirects).
+Compare:  `node tools/compare.mjs /tmp/zola-baseline astro-site/dist`.
+
+All 6 Rust crates are ported to TypeScript under `tools/` (generate-assets,
+generate-community, generate-errors, generate-release, write-rustdoc-hide-lines,
+learning-code-examples), each validated against the Rust original where local
+data allowed; network-bound fetch paths are documented per-crate README.
+
+Note: content frontmatter was NOT rewritten — `astro-site/src/lib/content.ts`
+parses the existing Zola TOML `+++` frontmatter directly, so the conversion is
+non-destructive to `content/`.
