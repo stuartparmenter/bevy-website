@@ -131,17 +131,22 @@ function rehypeHeadings(opts: { insertAnchor?: string; permalink: string; toc: T
 // syntax and `#fragment` (to absolute permalinks); other relative link paths (e.g.
 // `../intro/`) are left for the browser. Relative image paths are resolved against the
 // page permalink (colocated assets).
-function remarkResolveLinks(permalink: string) {
+function remarkResolveLinks(opts: { permalink: string; nested: boolean }) {
+  const { permalink, nested } = opts;
   // Resolvable relative target: not a scheme/protocol-relative/site-absolute URL, and not
   // a parent-relative path (`../…`, which Zola leaves for the browser). `#anchor` and bare
   // or `./`-prefixed paths ARE resolved (verbatim, appended to the permalink).
   const isResolvable = (u: string) =>
     !!u && !/^[a-z][a-z0-9+.-]*:/i.test(u) && !u.startsWith("/") && !u.startsWith("//") && !u.startsWith("..");
   const resolve = (u: string) => {
+    // `@/` internal links resolve everywhere (a render-time feature). Permalink-relative
+    // resolution (#anchor / bare paths) only happens at page level, not in Zola's nested
+    // `markdown` filter, which lacks page context.
     if (u.startsWith("@/")) {
       const resolved = internalLinkUrl(u.slice(2));
       if (resolved) return resolved;
     }
+    if (nested) return u;
     return isResolvable(u) ? permalink + u : u;
   };
   return (tree: any) => {
@@ -236,27 +241,36 @@ export function renderMarkdown(body: string, ctx: ShortcodeContext): RenderResul
   let summaryHtml: string | undefined;
   const moreMatch = expanded.match(MORE_RE);
   if (moreMatch) {
-    const before = renderToHtml(expanded.slice(0, moreMatch.index), ctx, [], { text: "" });
+    const before = renderToHtml(expanded.slice(0, moreMatch.index), ctx, [], { text: "" }, { nested: false });
     summaryHtml = before;
   }
 
   const toc: TocEntry[] = [];
   const ptRef = { text: "" };
-  const html = renderToHtml(expanded, ctx, toc, ptRef);
+  const html = renderToHtml(expanded, ctx, toc, ptRef, { nested: false });
   return { html, toc, summary: summaryHtml, plainText: ptRef.text };
 }
 
-function renderToHtml(src: string, ctx: ShortcodeContext, toc: TocEntry[], ptRef: { text: string }): string {
+// `nested` mirrors Zola's `markdown` filter used inside shortcode bodies: it still adds
+// heading ids and processes code fences, but does NOT insert anchor links or resolve
+// relative/internal links (the filter has no page link context).
+function renderToHtml(
+  src: string,
+  ctx: ShortcodeContext,
+  toc: TocEntry[],
+  ptRef: { text: string },
+  opts: { nested: boolean }
+): string {
   const file = unified()
     .use(remarkParse)
     .use(remarkGfmNoAutolink)
     .use(remarkZolaCodeFences)
-    .use(remarkResolveLinks, ctx.permalink)
+    .use(remarkResolveLinks, { permalink: ctx.permalink, nested: opts.nested })
     .use(remarkRehype, { allowDangerousHtml: true })
     .use(rehypeContinueReading)
     .use(rehypeZolaCode)
     .use(rehypeHeadings, {
-      insertAnchor: ctx.insertAnchorLinks,
+      insertAnchor: opts.nested ? undefined : ctx.insertAnchorLinks,
       permalink: ctx.permalink,
       toc,
     })
@@ -273,5 +287,5 @@ export function truncate(s: string, length: number): string {
   return chars.slice(0, length).join("") + "…";
 }
 
-// Provide the renderer to the shortcode module (for `body | markdown`), avoiding a cycle.
-setMarkdownRenderer((src, ctx) => renderToHtml(src, ctx, [], { text: "" }));
+// Provide the nested renderer to the shortcode module (for `body | markdown`).
+setMarkdownRenderer((src, ctx) => renderToHtml(src, ctx, [], { text: "" }, { nested: true }));

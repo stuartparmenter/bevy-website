@@ -169,9 +169,18 @@ function diffTree(a, b, path, diffs) {
 
 // Both are truncated (trailing "…") whitespace-variant summaries of the same content;
 // accept when the shorter, whitespace-collapsed text is a prefix of the longer.
+function decodeEntities(s) {
+  return s
+    .replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"').replace(/&#x?[0-9a-fA-F]+;/g, "")
+    .replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">");
+}
 function descPrefixMatch(a, b) {
   if (a == null || b == null) return false;
-  const norm = (s) => s.replace(/…\s*$/, "").replace(/\s+/g, " ").trim();
+  // Decode entities (Zola serializes content text with HTML entities, then re-escapes
+  // into the attribute, producing e.g. `&amplt;` where Astro emits the literal char) and
+  // normalize whitespace before the truncated-prefix comparison.
+  const norm = (s) => decodeEntities(s).replace(/…\s*$/, "").replace(/\s+/g, " ").trim();
   const na = norm(a), nb = norm(b);
   if (na === nb) return true;
   const [short, long] = na.length <= nb.length ? [na, nb] : [nb, na];
