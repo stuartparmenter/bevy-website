@@ -1,0 +1,11 @@
+{
+  "name": "learning-code-examples",
+  "private": true,
+  "type": "module",
+  "description": "Validate the Bevy website learning code examples (ANCHOR regions, content references, and cargo check/clippy/fmt).",
+  "scripts": {
+    "check-anchors": "node --experimental-strip-types validate.ts check-anchors",
+    "cargo": "node --experimental-strip-types validate.ts cargo",
+    "test": "node --experimental-strip-types test/run.ts"
+  }
+}

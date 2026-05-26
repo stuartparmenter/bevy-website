@@ -1,0 +1,14 @@
+{
+  "name": "generate-assets",
+  "private": true,
+  "type": "module",
+  "description": "Generate Zola asset pages from the bevy-assets repo.",
+  "scripts": {
+    "generate": "node --experimental-strip-types generate.ts",
+    "validate": "node --experimental-strip-types validate.ts",
+    "test": "node --experimental-strip-types --test"
+  },
+  "dependencies": {
+    "smol-toml": "^1.3.1"
+  }
+}

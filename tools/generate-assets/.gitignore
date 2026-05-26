@@ -1,0 +1,8 @@
+# Installed dependencies
+node_modules/
+# Bevy assets repo (fetched by generate_assets.sh)
+assets/
+# crates.io db dump cache (downloaded by generate_assets.sh)
+data/
+# Smoke-test scratch dirs
+smoke_*/

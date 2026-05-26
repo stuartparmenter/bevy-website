@@ -1,0 +1,4 @@
+# Installed dependencies
+node_modules/
+# Smoke-test scratch dirs
+smoke_*/
