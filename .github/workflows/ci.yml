@@ -41,51 +41,28 @@ jobs:
       - name: Check hide-lines
         run: cd write-rustdoc-hide-lines && node --experimental-strip-types src/main.ts check ../content
 
-  lint-tools:
+  test-tools:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
 
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
-          components: rustfmt, clippy
+          node-version: 22
 
-      - name: Install alsa, udev and libwayland
-        run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev libwayland-dev
-      - name: Check formatting
-        run: cargo fmt --check --all
+      - name: Install dependencies
+        run: npm ci
 
-      - name: Check clippy
-        run: cargo clippy --all-targets -- -Dwarnings
+      # The Rust generators were ported to TypeScript; run their test suites.
+      - name: Test write-rustdoc-hide-lines
+        run: cd write-rustdoc-hide-lines && node --experimental-strip-types test/run.ts
 
-  test-crates:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
+      - name: Test learning-code-examples (anchors + references)
+        run: cd learning-code-examples && node --experimental-strip-types validate.ts check-anchors
 
-      - uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: ${{ runner.os }}-test-crates-${{ hashFiles('**/Cargo.toml') }}
-
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Install alsa, udev and libwayland
-        run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev libwayland-dev
-
-      # Some tests assume the generate-errors/bevy/errors folder exists
-      - name: Checkout errors
-        run: generate-errors/download_errors.sh
-
-      - name: Run tests
-        run: cargo test
+      - name: Test generate-assets
+        run: cd generate-assets && node --test --experimental-strip-types
 
   typos:
     runs-on: ubuntu-latest
@@ -104,10 +81,15 @@ jobs:
           echo 'You can find the extension here: https://marketplace.visualstudio.com/items?itemName=tekumara.typos-vscode'
 
   generate-assets:
-    needs: [mega-linter, lint-tools, check-hide-lines, typos]
+    needs: [mega-linter, check-hide-lines, typos]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
 
       - name: Get current date
         id: date
@@ -122,7 +104,7 @@ jobs:
         with:
           # Must be kept in sync with deploy.yml
           path: content/assets
-          key: assets-${{ steps.date.outputs.date }}-${{ hashFiles('generate-assets/**/*.rs', 'generate-assets/Cargo.toml', 'generate-assets/generate_assets.sh') }}
+          key: assets-${{ steps.date.outputs.date }}-${{ hashFiles('generate-assets/**/*.ts', 'generate-assets/package.json', 'generate-assets/generate_assets.sh') }}
 
       - name: "Build Bevy Assets"
         # Only run if in merge queue or if no cache was found. `cache-hit` is a string, so we
@@ -140,20 +122,15 @@ jobs:
           retention-days: 1
 
   generate-errors:
-    needs: [mega-linter, lint-tools, check-hide-lines, typos]
+    needs: [mega-linter, check-hide-lines, typos]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
 
-      - uses: actions/cache@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            generate-errors/target/
-          key: ${{ runner.os }}-generate-errors-${{ hashFiles('generate-errors/Cargo.toml') }}
+          node-version: 22
 
       - name: "Build Bevy Error Codes"
         run: >
@@ -167,7 +144,7 @@ jobs:
           retention-days: 1
 
   generate-wasm-examples:
-    needs: [mega-linter, lint-tools, check-hide-lines, typos]
+    needs: [mega-linter, check-hide-lines, typos]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -194,20 +171,15 @@ jobs:
           retention-days: 1
 
   generate-community:
-    needs: [mega-linter, lint-tools, check-hide-lines, typos]
+    needs: [mega-linter, check-hide-lines, typos]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
 
-      - uses: actions/cache@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            generate-community/target/
-          key: ${{ runner.os }}-generate-community-${{ hashFiles('generate-community/Cargo.toml') }}
+          node-version: 22
 
       - name: "Build Bevy Community"
         run: >
@@ -222,10 +194,15 @@ jobs:
 
   build-website:
     runs-on: ubuntu-latest
-    needs: [mega-linter, lint-tools, check-hide-lines, typos, generate-assets, generate-errors, generate-wasm-examples, generate-community, test-crates]
+    needs: [mega-linter, check-hide-lines, test-tools, typos, generate-assets, generate-errors, generate-wasm-examples, generate-community]
 
     steps:
       - uses: actions/checkout@v5
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
 
       - name: Checkout Bevy repo for asset access
         uses: actions/checkout@v5
@@ -261,11 +238,6 @@ jobs:
         with:
           name: generated-community
           path: content/community/people
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
 
       - name: Install dependencies
         run: npm ci

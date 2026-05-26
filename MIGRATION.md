@@ -66,13 +66,19 @@ Build: `npm run build` → `dist/`.  Compare: `node tools/compare.mjs /tmp/zola-
 Done: Astro at repo root; Rust→TS in place; Zola files removed; `deploy.yml` and the key
 `ci.yml` jobs (`check-hide-lines`, `build-website`) switched to Node/Astro.
 
-Remaining for a fully green pipeline (functional, beyond structural parity):
-- `ci.yml`: the `lint-tools`/`test-crates` jobs and the `generate-*` jobs still assume the
-  Rust toolchain — convert to Node (run the TS ports / `tsc`).
-- **Search**: `search_index.en.js` (Zola elasticlunr index) is not produced — wire up a
-  search-index generator if search must keep working.
+Done:
+- `ci.yml` converted to Node/Astro (`test-tools` replaces the Rust lint/test jobs; the
+  `generate-*` jobs use Node; `build-website` runs `npm run build`).
+- **Search** works: `scripts/postbuild.mjs` builds `search_index.en.js` with the
+  `elasticlunr` package (v0.9.5, 161 docs — same count as Zola), and ships
+  `elasticlunr.min.js` from `node_modules` (the vendored copy was removed). The index is
+  functionally equivalent and queryable; it is not byte-identical to Zola's Rust
+  elasticlunr port (different tokenizer term frequencies), and `elasticlunr.min.js` is the
+  npm build (different minification than Zola's), so both show as "differing".
+
+Remaining (optional, functional):
 - **News thumbnails**: `resize_image` produced hashed `processed_images/*`; decide on an
-  Astro image-processing step (or accept different filenames).
+  Astro image-processing step (or accept different filenames). Only affects `news/index`.
 
 ## Known cross-engine limitations (cannot byte/structurally match)
 

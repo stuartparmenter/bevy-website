@@ -10,6 +10,7 @@
   "dependencies": {
     "@minify-html/node": "^0.18.1",
     "astro": "^6.3.8",
+    "elasticlunr": "^0.9.5",
     "hast-util-to-string": "^3.0.1",
     "image-size": "^2.0.2",
     "mdast-util-gfm-footnote": "^2.1.0",

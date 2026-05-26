@@ -10,7 +10,9 @@ import { join, dirname, relative, basename } from "node:path";
 import { fileURLToPath } from "node:url";
 import minifyHtml from "@minify-html/node";
 import * as sass from "sass";
+import elasticlunr from "elasticlunr";
 import { loadContent, REPO_ROOT, BASE_URL } from "../src/lib/content.ts";
+import { renderMarkdown } from "../src/lib/markdown.ts";
 
 const DIST = fileURLToPath(new URL("../dist/", import.meta.url));
 const CONTENT = join(REPO_ROOT, "content");
@@ -101,4 +103,37 @@ for (const node of all) {
   }
 }
 
-console.log(`postbuild: minified ${minified} html, copied ${copied} colocated assets, wrote ${redirects} redirects`);
+// 4. Search index (Zola build_search_index=true): an elasticlunr index of every page
+//    (id=permalink, title, body=plain text), in the same shape elasticlunr.Index.toJSON
+//    produces — loadable by the bundled elasticlunr.min.js. Indexes all nodes except
+//    redirect-only sections. Not byte-identical to Zola's Rust elasticlunr port, but a
+//    functionally-equivalent index from the elasticlunr package itself.
+const idx = elasticlunr(function () {
+  this.addField("title");
+  this.addField("body");
+  this.setRef("id");
+});
+let indexed = 0;
+for (const node of all) {
+  if (node.redirectTo) continue;
+  let body = "";
+  try {
+    body = renderMarkdown(node.body, {
+      insertAnchorLinks: node.insertAnchorLinks,
+      permalink: node.permalink,
+      colocatedPath: node.colocatedPath ?? "",
+    }).plainText;
+  } catch {
+    /* template-driven pages have no markdown body */
+  }
+  idx.addDoc({ id: node.permalink, title: node.title, body });
+  indexed++;
+}
+const indexObj = JSON.parse(JSON.stringify(idx));
+indexObj.lang = "English";
+writeFileSync(join(DIST, "search_index.en.js"), `window.searchIndex = ${JSON.stringify(indexObj)};`);
+
+// 5. Ship the elasticlunr runtime from the npm package (no longer vendored).
+copyFileSync(join(REPO_ROOT, "node_modules/elasticlunr/elasticlunr.min.js"), join(DIST, "elasticlunr.min.js"));
+
+console.log(`postbuild: minified ${minified} html, copied ${copied} colocated assets, wrote ${redirects} redirects, indexed ${indexed} docs`);
