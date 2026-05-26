@@ -33,7 +33,7 @@ import {
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 // tools/learning-code-examples -> repo root is two levels up.
-const REPO_ROOT = resolve(HERE, "..", "..");
+const REPO_ROOT = resolve(HERE, "..");
 const DEFAULT_CRATE = join(REPO_ROOT, "learning-code-examples");
 const DEFAULT_CONTENT = join(REPO_ROOT, "content");
 

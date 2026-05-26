@@ -1,6 +1,0 @@
-# Bevy repository (fetched by download_errors.sh)
-bevy/
-# Fake content folders for smoke tests
-section_content/
-pages_content/
-smoke_out/

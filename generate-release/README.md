@@ -1,118 +1,179 @@
-# Generate Release
+# Generate Release (TypeScript)
 
-This CLI tool is used to generate all the skeleton files required to create a new release.
+TypeScript port of the `generate-release` Rust crate (`../../generate-release/`).
+It generates the skeleton files under `release-content/<release-version>/` that
+the website's release blog posts and migration-guide pages consume:
 
-For a bit more background see this issue: <https://github.com/bevyengine/bevy-website/issues/1163>
+- `migration-guides/_guides.toml` + one `.md` per guide
+- `release-notes/_release-notes.toml` + one `.md` per note
+- `changelog.toml`
+- `contributors.toml`
 
-The commands can be run from anywhere inside the workspace folder. If you have a `.env` file, this will only work if it is located at the root of the workspace.
+Data is fetched from the Bevy GitHub repo (commits, PRs/issues, contributors)
+via the GitHub REST + GraphQL APIs.
 
-Each command will generate files in the `/release-content/{release-version}` folder. The `release-version` is an argument to all commands.
+Runs on Node 22 with `node --experimental-strip-types` (no build step — the
+`.ts` files are executed directly). The only runtime dependency is `smol-toml`
+(used to read back the pre-existing `_guides.toml` / `_release-notes.toml` when
+not overwriting).
 
-Each command have a `--from` and `--to` argument. You can pass it a Git branch, tag, or commit.
+## Requirements
 
-To create issues for the `release-notes` subcommand, you need to pass the `--create-issues` flag, otherwise it performs a dry-run that does not have lasting consequences. This should probably only be done for the initial run, after a regular dry-run has been done to confirm the tool is working as expected.
-
-Before running the command, you'll need to generate a GitHub API token at <https://github.com/settings/tokens>. It's easier to use classic tokens.
-The token must have `repo` permissions to be able to open issues (and PRs) on your behalf.
-
-Then add it to a file called `.env` (stored in the root `bevy-website` folder) like so:
+A valid `GITHUB_TOKEN` is required (classic token with `repo` scope, so it can
+open issues / comment for the `release-notes` subcommand). Provide it via the
+environment, or a `.env` file at the repository root:
 
 ```env
 GITHUB_TOKEN=token_string_copied_from_github
 ```
 
-Here's an example for the commands used to generate the `0.14` release:
+The `.env` loader mirrors the Rust crate's `dotenvy`: it only sets variables
+that are not already present in the environment.
 
-```shell
-cargo run -p generate-release -- --from v0.13.0 --to main --release-version 0.14 migration-guides
-cargo run -p generate-release -- --from v0.13.0 --to main --release-version 0.14 release-notes
-cargo run -p generate-release -- --from v0.13.0 --to main --release-version 0.14 changelog
-cargo run -p generate-release -- --from v0.13.0 --to main --release-version 0.14 contributors
+## Usage
+
+From any directory:
+
+```sh
+./tools/generate-release/generate_release.sh \
+  --from v0.13.0 --to main --release-version 0.14 <subcommand> [options]
 ```
 
-## Generating a release
+or directly:
 
-To generate a release from scratch, run all these commands then add the new migration guide and blog post to their respective `/content` folder. When doing so, it's important to use the `public_draft` feature to hide those pages until the day of the release. For the `public_draft` feature, you'll need to provide it a GitHub issue number, it's recommended to point it to an issue tracker for the current release being worked on. The issue needs to be on the `bevy-website` repo.
-
-When you're merging or editing notes and guides, keep in mind that this tool will not regenerate notes or guides that still have a PR number in any note or guide's metadata, contained in the `_<release_notes|guides>.toml`. This means to merge multiple PRs into one note or guide you simply remove one `[[release_notes]]` or `[[guides]]` entry, and move its PR number to the merged entry that is the sum of all the merged PRs. For editing, this means the other metadata will also not be regenerated if the PR number still exists in the metadata.
-
-The following sections go in more details on each parts of the process.
-
-### Migration Guides
-
-The `migration-guides` command will generate the `/release-content/{release-version}/migration-guides` folder.
-Inside will be a single `_guides.toml` that contains metadata needed for each guides. Then each guide will be a separate markdown file inside that folder.
-
-Once the files are generated, you can easily add a new migration guide by adding a new file in `/content/learn/migration-guides`.
-
-Inside that file, you should have something that looks like this:
-
-```markdown
-+++
-# Let Xa be the old major version, and ya the old minor version,
-# and Xb be the new major version, and yb the new minor version.
-# 
-# Change the Bevy versions below to match these!
-title = "Xa.ya to Xb.yb"
-insert_anchor_links = "right"
-[extra]
-# Let N be the weight of the prior / last migration guide, plus one.
-weight = N
-long_title = "Migration Guide: Xa.ya to Xb.yb"
-# GitHub issue number for tracking this release's
-# migration guides or news post.
-public_draft = _release tracking issue number_
-+++
-
-{{ migration_guides(version="Xb.yb") }}
+```sh
+node --experimental-strip-types tools/generate-release/generate.ts \
+  --from v0.13.0 --to main --release-version 0.14 <subcommand> [options]
 ```
 
-The most important part of this is the `migrations_guides` shortcode. It will get the list of guides from the `_guides.toml` file and combine all the separate file and generate appropriate markup for it.
+Global options (all required except `--release-path`):
 
-Remember to update the weight to be higher than the previous guides.
+- `-f, --from <FROM>` — branch / tag / commit to start from.
+- `-t, --to <TO>` — branch / tag / commit to end on.
+- `-r, --release-version <VERSION>` — e.g. `0.14`. Output goes to
+  `release-content/<VERSION>/`.
+- `--release-path <PATH>` — override the output root (defaults to
+  `<repo>/release-content`). Not present in the Rust CLI; added here so the
+  tool can be pointed at a scratch dir for testing.
 
-### Release Notes
+See `--help` for the full text.
 
-The release notes is a bit more complicated since it has multiple parts that need to be generated.
+## Subcommands
 
-You'll need to use the `release-notes`, `changelog`, and `contributors` commands.
+These match the Rust crate exactly:
 
-- `release-notes` will generate the `/release-content/{release-version}/release-notes` folder. Inside will be a single `_release-notes.toml` file that contains the list of file names that will be combined into the final blog post. Each PR that needs a release note will then have a file generated.
-- `changelog` generates a `changelog.toml` file with a list of all PRs merged sorted by main area.
-- `contributors` generates a `contributors.toml` file with a list of all the usernames that authored a PR for the specified release.
+| Subcommand          | Options                                | Output |
+| ------------------- | -------------------------------------- | ------ |
+| `migration-guides`  | `-o, --overwrite-existing`             | `migration-guides/_guides.toml` + per-guide `.md` |
+| `release-notes`     | `-o, --overwrite-existing`, `-c, --create-issues` | `release-notes/_release-notes.toml` + per-note `.md` |
+| `changelog`         | —                                      | `changelog.toml` |
+| `contributors`      | —                                      | `contributors.toml` |
 
-Once all those files are generated you'll need to create a new blog post in `/content/news`. The content of the `index.md` file should look something like this:
+### `migration-guides`
 
-```markdown
-+++
-# Let X be the major version, and y the minor version.
-# Change the Bevy release versions below to match this one!
-title = "Bevy X.y"
-# Insert a date in the year, month, day format.
-# This should be the date that the post will be posted.
-date = YYYY-MM-DD
-[extra]
-# GitHub issue number for tracking this release's
-# news post.
-public_draft = _release tracking issue number_
-+++
+Fetches all merged PRs between `--from` and `--to`, keeps those with a
+`## Migration Guide` section in the body or the `M-Needs-Migration-Guide` label,
+groups them by their `A-*` area labels, and writes one cleaned-up Markdown file
+per guide plus a `_guides.toml` metadata index.
 
-<!-- TODO Intro -->
+When `--overwrite-existing` is not passed, the existing `_guides.toml` is read
+and any PR already recorded there is skipped (so hand-merged / hand-edited
+entries are preserved). The metadata is always re-sorted (area ascending, empty
+areas last; then title ascending) and rewritten.
 
-<!-- more -->
+File naming: `<pr_number>_<slug>.md`, where `<slug>` is the title with spaces
+replaced by `_` and all non-(Unicode-letter/number/`_`) characters removed, then
+the whole `<pr_number>_<slug>` truncated to 64 UTF-8 bytes.
 
-{{ release_notes(version="X.y") }}
+### `release-notes`
 
-## What's Next?
+Fetches merged PRs with the `M-Needs-Release-Note` label and writes a skeleton
+`<!-- TODO -->` note per PR plus a `_release-notes.toml` index. Without
+`--overwrite-existing`, already-recorded PRs are skipped and new entries are
+appended; with it, the file is rewritten. With `--create-issues`, an issue is
+opened on `bevy-website` for each PR lacking notes and a comment is left on the
+original PR; without it (the default) this is a dry run that prints what it
+*would* do.
 
-<!-- TODO What's next -->
+### `changelog`
 
-{{ support_bevy() }}
-{{ contributors(version="X.y") }}
-{{ changelog(version="X.y")}}
+Lists every merged PR between `--from` and `--to`, grouped by area label
+(empty areas last) and sorted within each area by close date.
+
+### `contributors`
+
+Lists the unique author/co-author logins across all merged PRs (resolved via the
+GraphQL commit-authors query, with retry/backoff). `@github-actions[bot]` is
+filtered out.
+
+## Parity notes / differences from the Rust crate
+
+- TOML for the generated `.toml` files is hand-emitted as raw strings (exactly
+  like the Rust crate's `format!`/`writeln!`), not via a serializer, so the byte
+  layout matches. `smol-toml` is only used for *reading* the pre-existing
+  metadata files.
+- Each `[[guides]]` / `[[release_notes]]` / `[[areas]]` block is followed by a
+  blank line, matching the Rust `writeln!("{block}")` (the block already ends in
+  a newline).
+- `release-notes` emits `authors = ["@author",]` with the trailing comma exactly
+  as the Rust template does.
+- The Rust crate parallelizes `contributors` with rayon (3 threads); the port
+  mirrors this with 3 concurrent async workers. Because the underlying set is
+  unordered (`HashSet` in Rust), the line order of `contributors.toml` is
+  non-deterministic in both implementations.
+- Markdown processing (the `migration-guides` body cleanup) is the only place
+  the Rust crate uses an external parser (`pulldown-cmark` 0.9.2). There is no
+  exact-equivalent dependency-free JS library, so `markdown.ts` reimplements the
+  needed subset of CommonMark to produce the same event stream the Rust renderer
+  consumes (headings, paragraphs, fenced/indented code, nested lists, block
+  quotes, thematic breaks, raw HTML, and the inline elements the renderer
+  special-cases). This is faithful for the constructs that appear in Bevy PR
+  bodies but is not a full CommonMark engine.
+
+## Validation
+
+The GitHub-fetching subcommands need network access and a token, so they cannot
+be run end-to-end offline. The pure-local pieces are validated against the
+committed `release-content/` output:
+
+```sh
+node --experimental-strip-types tools/generate-release/validate.ts
 ```
 
-The most important part of this is the `release_notes`, `changelog`, and `contributors` shortcodes. `release_notes` will get the list of release notes from the `_release_notes.toml` file and combine all the separate file and add them to this file. `contributors()` will load the `contributors.toml` file and generate the necessary markup. `changelog()` will load the `changelog.toml` file and generate the necessary markup.
+This checks:
 
-> [!NOTE]
-> The `contributors` field in `_release_notes.toml` is for all non-PR-author contributors to the PR; they should be added to the `authors` field on a case-by-case basis depending on level of involvement.
+- **`_guides.toml` block serialization** — every parsed guide block is re-emitted
+  and must appear verbatim in the committed file. 100% match for 0.15
+  (214/214) and 0.16 (165/165); 0.14 matches in its legacy quoted-`prs` format
+  (130/130).
+- **`changelog.toml` block serialization** — 100% verbatim match for 0.14
+  (90/90 areas) and 0.15 (109/109, one entry skipped for an embedded newline in
+  a hand-entered title).
+- **`file_name` reconstruction** from title + PR number for single-PR guide
+  entries. Most match; the rest are guides whose `title` was edited after
+  generation (so the slug no longer regenerates) or which were produced by an
+  older version of the tool with a different truncation length (the 0.16 data
+  shows 37 files capped at exactly 64 chars, confirming the current truncation
+  behaviour).
+
+What is **not** validated offline (network-bound, or non-deterministic):
+
+- The actual GitHub fetching (`compareCommits`, `getIssuesAndPrs`,
+  `getContributors`, `openIssue`, `leaveComment`).
+- End-to-end `migration-guides` / `release-notes` runs (they fetch + process
+  live PR bodies). The committed per-guide `.md` files are additionally
+  hand-edited after generation, so they are not byte-exact references for the
+  markdown transform.
+- `contributors.toml` line ordering (non-deterministic set iteration).
+
+## Files
+
+- `generate.ts` — CLI entry point (port of `src/main.rs`).
+- `github-client.ts` — GitHub REST/GraphQL client (port of `src/github_client.rs`).
+- `helpers.ts` — merged-PR gathering, area extraction, contributor retry (port of `src/helpers.rs`).
+- `markdown.ts` — Markdown section extraction + re-rendering (port of `src/markdown.rs`).
+- `migration-guides.ts`, `release-notes.ts`, `changelog.ts`, `contributors.ts` —
+  the four subcommands.
+- `util.ts` — slugify, UTF-8 truncate, and Rust-`Ord`-compatible comparators.
+- `validate.ts` — offline validation harness (see above).
+- `generate_release.sh` — wrapper that runs `generate.ts` with Node 22.

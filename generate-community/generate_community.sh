@@ -6,4 +6,7 @@ cd $(dirname $0)
 # Download a copy of the Bevy community repository.
 git clone --depth=1 https://github.com/bevyengine/bevy-community bevy-community
 
-cargo run --bin generate -- bevy-community ../content/ community
+# The original tooling output to ../content/ relative to the Rust crate
+# (generate-community/). This TS port lives in tools/generate-community/, so the
+# repo-root content/ folder is one level up.
+node --experimental-strip-types generate.ts bevy-community ../content/ community

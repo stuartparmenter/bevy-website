@@ -152,7 +152,7 @@ async function main(): Promise<void> {
   // This script lives at <repo>/tools/generate-release/generate.ts.
   // The repo root is two directories up.
   const scriptDir = dirname(fileURLToPath(import.meta.url));
-  const repoRoot = resolve(scriptDir, "..", "..");
+  const repoRoot = resolve(scriptDir, "..");
 
   loadDotenv(repoRoot);
 

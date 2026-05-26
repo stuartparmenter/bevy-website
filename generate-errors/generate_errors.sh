@@ -5,4 +5,7 @@ cd $(dirname $0)
 
 ./download_errors.sh
 
-cargo run --bin generate -- --errors-path bevy/errors --output-path ../content/learn
+# The original tooling output to ../content/learn relative to the Rust crate
+# (generate-errors/). This TS port lives in tools/generate-errors/, so the
+# repo-root content/learn folder is one level up.
+node --experimental-strip-types generate.ts --errors-path bevy/errors --output-path ../content/learn

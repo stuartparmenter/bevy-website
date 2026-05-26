@@ -1,2 +1,6 @@
-# Bevy community repository
+# Installed dependencies
+node_modules/
+# Bevy community repo (fetched by generate_community.sh)
 bevy-community/
+# Smoke-test scratch dirs
+smoke_*/

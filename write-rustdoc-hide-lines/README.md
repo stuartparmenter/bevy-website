@@ -1,37 +1,65 @@
-# Write `rustdoc` `hide_lines` Annotations
+# Write `rustdoc` `hide_lines` Annotations (TypeScript)
 
-<!-- markdownlint-disable-next-line MD038 -->
-This utility recursively iterates over all Markdown files in a given folder. It will update the [`hide_lines` Zola annotation] on all `rust` and `rs` code blocks to match [rustdoc hidden lines]. It will match all lines that start with `# `. A space after the hashtag is required, or else it would accidentally hide attributes like `#[derive(...)]`. If `hide_lines` is out of date, this tool can automatically update it.
+This is a TypeScript port of the Rust crate in `../../write-rustdoc-hide-lines/`,
+part of converting the site's tooling from Rust to TypeScript. Behavior is
+intended to be identical to the original.
+
+This utility recursively iterates over all Markdown files in a given folder. It
+updates the [`hide_lines` Zola annotation] on all `rust` and `rs` code blocks to
+match [rustdoc hidden lines]. It matches all lines that start with `# ` (a space
+after the `#` is required, so attributes like `#[derive(...)]` are not hidden).
+If `hide_lines` is out of date, the tool can automatically update it.
 
 [`hide_lines` Zola annotation]: https://www.getzola.org/documentation/content/syntax-highlighting/#annotations
 [rustdoc hidden lines]: https://doc.rust-lang.org/rustdoc/write-documentation/documentation-tests.html#hiding-portions-of-the-example
 
+## Requirements
+
+Node 22+. The TypeScript runs directly via Node's type stripping
+(`--experimental-strip-types`); there is no build step and no runtime
+dependencies.
+
 ## Usage
 
-To format the entire website, you can run `write_rustdoc_hide_lines.sh` from any directory:
+Format one or more directories (rewrites files in place):
 
 ```shell
-./write_rustdoc_hide_lines.sh
+node --experimental-strip-types src/main.ts format ./path/to/directory
+node --experimental-strip-types src/main.ts format ./folder1 ./folder2
 ```
 
-The script automatically handles formatting the all Markdown files in the `content` directory. It is not an alias and does not accept any arguments. In general, you will only ever need to run the above script in order to make Github Actions pass.
-
-If you want to format a specific directory, you can run the tool using [Cargo]:
-
-[Cargo]: https://doc.rust-lang.org/cargo/index.html
+Check directories without modifying them (exits non-zero if any file would
+change):
 
 ```shell
-cargo run -- format ./path/to/directory
+node --experimental-strip-types src/main.ts check ./folder1 ./folder2
 ```
 
-You can also tell the tool to format multiple directories:
+When the `GITHUB_ACTIONS=true` environment variable is set, `check` emits
+GitHub Actions log grouping and `::error::` annotations, matching the Rust tool.
+
+## Tests
+
+Unit tests ported from the Rust crate's `#[cfg(test)]` modules:
 
 ```shell
-cargo run -- format ./folder1 ./folder2
+node --experimental-strip-types test/run.ts
 ```
 
-If you just want to check a directory and do not want to format it, you can use the check command:
+## Port notes
 
-```shell
-cargo run -- check ./folder1 ./folder2
-```
+The transformation is byte-for-byte equivalent to the Rust implementation:
+
+- Input is split using Rust `str::lines()` semantics (split on `\n`, trailing
+  `\r` removed, no trailing empty line), and each output line is followed by
+  `\n` (matching Rust `writeln!`). A file with no final newline gains one, and
+  CRLF line endings are normalized to LF.
+- The same regexes are used: code-block detection `\s*```(\w*)`, fence parsing
+  `(\s*)```(.+)`, and hidden-line detection `^\s*#(?: |$)`.
+- Only `rust` / `rs` code blocks are touched; other languages and non-code text
+  pass through unchanged.
+- Hidden-line ranges are 1-based and inclusive, formatted as space-separated
+  `N` or `start-end` tokens, exactly as the original.
+
+There is no TOML handling: front matter and all non-code text are passed through
+verbatim, so no TOML parser is needed.
