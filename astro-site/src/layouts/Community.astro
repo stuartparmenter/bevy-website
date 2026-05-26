@@ -1,0 +1,29 @@
+---
+// Mirrors templates/community.html (extends layouts/base.html).
+import BaseLayout from "./BaseLayout.astro";
+import { loadData, type Node } from "../lib/content.ts";
+
+interface Props { node: Node; }
+const { node } = Astro.props as Props;
+const links: any[] = loadData("content/community/links.toml").links || [];
+---
+<BaseLayout node={node} ogDescription={undefined}>
+  <div class="padded-content item-grid item-grid--two-cols">
+    {links.map((link) => (
+      <a class="link-card" href={link.url}>
+        <div class="link-card__img-wrapper">
+          <img class="link-card__img link-card__img--small"
+                src={link.image}
+                alt={link.image_alt}
+                width="80"
+                height="80" />
+        </div>
+        <div class="link-card__content">
+          <h2 class="link-card__title">{link.title}</h2>
+          {link.subtitle && <div class="link-card__subtitle">{link.subtitle}</div>}
+          <p class="link-card__description">{link.description}</p>
+        </div>
+      </a>
+    ))}
+  </div>
+</BaseLayout>

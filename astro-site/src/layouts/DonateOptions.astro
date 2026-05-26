@@ -1,0 +1,71 @@
+---
+// Mirrors templates/donate-options.html (extends layouts/base.html).
+import BaseLayout from "./BaseLayout.astro";
+import { loadData, type Node } from "../lib/content.ts";
+import { renderMarkdown, truncate } from "../lib/markdown.ts";
+
+interface Props { node: Node; }
+const { node } = Astro.props as Props;
+
+const tiers = loadData("content/donate/tiers.toml");
+const tierList: any[] = tiers.tier || [];
+
+const rendered = renderMarkdown(node.body, {
+  insertAnchorLinks: node.insertAnchorLinks,
+  permalink: node.permalink,
+  colocatedPath: node.colocatedPath ?? "",
+});
+
+const ogDescription = node.description ?? (rendered.plainText.trim() ? truncate(rendered.plainText, 150) : undefined);
+---
+<BaseLayout node={node} ogDescription={ogDescription}>
+<div class="media-content" style="padding-top: 10px;">
+    <table>
+        <thead>
+            <tr>
+                <th>Tier</th>
+                <th>Every.org</th>
+                <th>Stripe</th>
+                <th>Name in Credits</th>
+                <th>Link in Credits</th>
+                <th>Logo in Credits</th>
+            </tr>
+        </thead>
+        <tbody>
+            {tierList.map((tier) => (
+            <tr>
+                <td><b>{tier.name}</b> (${tier.amount} / month)</td>
+                <td>
+                    {tier.every_org_link
+                        ? <a href={tier.every_org_link}>every.org</a>
+                        : tier.every_org_missing}
+                </td>
+                <td>
+                    {tier.stripe_link
+                        ? <a href={tier.stripe_link}>stripe</a>
+                        : tier.stripe_missing}
+                </td>
+                <td>
+                    {tier.reward_name && "Yes"}
+                </td>
+                <td>
+                    {tier.reward_link && "Yes"}
+                </td>
+                <td>
+                    {tier.reward_logo && "Yes"}
+                </td>
+            </tr>
+            ))}
+            <tr>
+                <td><b>Custom</b></td>
+                <td><a href="https://www.every.org/bevy-foundation?suggestedAmounts=10%2C25%2C50%2C100%2C250&theme_color=6a8fb3&designation=Custom&utm_campaign=donate-link#/donate">every.org</a></td>
+                <td>Not supported right now</td>
+                <td>See tiers</td>
+                <td>See tiers</td>
+                <td>See tiers</td>
+            </tr>
+        </tbody>
+    </table>
+    <Fragment set:html={rendered.html} />
+</div>
+</BaseLayout>

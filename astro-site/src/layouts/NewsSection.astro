@@ -1,0 +1,78 @@
+---
+// Mirrors templates/news.html (extends layouts/base.html).
+import BaseLayout from "./BaseLayout.astro";
+import { BASE_URL, type Node } from "../lib/content.ts";
+import { renderMarkdown, truncate } from "../lib/markdown.ts";
+import { formatDate } from "../lib/dates.ts";
+
+interface Props { node: Node; }
+const { node } = Astro.props as Props;
+
+// Tera `striptags`: remove tags, collapse runs of whitespace per Zola/MiniJinja semantics.
+function striptags(html: string): string {
+  return html.replace(/<[^>]*>/g, "");
+}
+
+// Mirrors image_macros::resize_image. For svg/gif/webp -> absolute get_url. Otherwise
+// Zola resizes to a hashed processed_images path we cannot reproduce (best-effort).
+function resizeImage(path: string): string {
+  if (path.endsWith(".svg") || path.endsWith(".gif") || path.endsWith(".webp")) {
+    return BASE_URL + path;
+  }
+  // Best-effort: known limitation; the hashed name will not match Zola.
+  const base = path.split("/").pop() || path;
+  const dot = base.lastIndexOf(".");
+  const name = dot >= 0 ? base.slice(0, dot) : base;
+  const ext = dot >= 0 ? base.slice(dot) : "";
+  return `${BASE_URL}/processed_images/${name}.0000000000000000${ext}`;
+}
+
+const visiblePages = node.pages.filter((p) => p && !p.extra?.public_draft);
+
+const cards = visiblePages.map((page) => {
+  const ex = page.extra || {};
+  const addImgPadding = !!ex.padded_list_image || ex.image === undefined;
+  let imageSrc: string | null = null;
+  if (ex.image) {
+    // image_parent = page.path | replace(_index.md -> ""); page.path has no _index.md.
+    imageSrc = resizeImage(page.path + ex.image);
+  }
+  const authorsText = page.authors.length ? page.authors.join("") : "Bevy Contributors";
+  const dateText = page.date ? formatDate(page.date, "%B %d, %Y") : "";
+  const rendered = renderMarkdown(page.body, {
+    insertAnchorLinks: page.insertAnchorLinks,
+    permalink: page.permalink,
+    colocatedPath: page.colocatedPath ?? "",
+  });
+  const summaryText = rendered.summary ? truncate(striptags(rendered.summary), 350) : "";
+  return { page, addImgPadding, imageSrc, authorsText, dateText, summaryText };
+});
+---
+<BaseLayout node={node} ogDescription={undefined}>
+  <div class="padded-content item-grid">
+    {cards.map(({ page, addImgPadding, imageSrc, authorsText, dateText, summaryText }) => (
+      <a class="link-card" href={page.path}>
+        <div class={`link-card__img-wrapper ${addImgPadding ? "link-card__img-wrapper--padded" : ""}`}>
+          {imageSrc ? (
+            <img class="link-card__img"
+                  src={imageSrc}
+                  loading="lazy"
+                  alt="An image representing the article" />
+          ) : (
+            <img class="link-card__img"
+                  src="/assets/bevy_logo_dark.svg"
+                  loading="lazy"
+                  alt="Bevy Engine logo"
+                  width="520"
+                  height="130" />
+          )}
+        </div>
+        <div class="link-card__content">
+          <h2 class="link-card__title">{page.title}</h2>
+          <div class="link-card__subtitle">Written {dateText} by {authorsText}</div>
+          <p class="link-card__description link-card__description--ellipsis" set:html={summaryText} />
+        </div>
+      </a>
+    ))}
+  </div>
+</BaseLayout>

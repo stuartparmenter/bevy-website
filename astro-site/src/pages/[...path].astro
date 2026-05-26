@@ -2,10 +2,29 @@
 import { loadContent, templateFor, type Node } from "../lib/content.ts";
 import NewsPage from "../layouts/NewsPage.astro";
 import DocsLayout from "../layouts/DocsLayout.astro";
+import Foundation from "../layouts/Foundation.astro";
+import SponsorshipPledge from "../layouts/SponsorshipPledge.astro";
+import Community from "../layouts/Community.astro";
+import Learn from "../layouts/Learn.astro";
+import Donate from "../layouts/Donate.astro";
+import DonateOptions from "../layouts/DonateOptions.astro";
+import NewsSection from "../layouts/NewsSection.astro";
+import FaqPage from "../layouts/FaqPage.astro";
 
 export function getStaticPaths() {
   // Templates implemented so far; nodes using other templates are skipped until ported.
-  const IMPLEMENTED = new Set(["news-page.html", "docs.html"]);
+  const IMPLEMENTED = new Set([
+    "news-page.html",
+    "docs.html",
+    "foundation.html",
+    "sponsorship-pledge.html",
+    "community.html",
+    "learn.html",
+    "donate.html",
+    "donate-options.html",
+    "news.html",
+    "faq.html",
+  ]);
   const { all } = loadContent();
   const paths = [];
   for (const node of all) {
@@ -25,3 +44,11 @@ const { node, tmpl } = Astro.props as { node: Node; tmpl: string };
 ---
 {tmpl === "news-page.html" && <NewsPage node={node} />}
 {tmpl === "docs.html" && <DocsLayout node={node} />}
+{tmpl === "foundation.html" && <Foundation node={node} />}
+{tmpl === "sponsorship-pledge.html" && <SponsorshipPledge node={node} />}
+{tmpl === "community.html" && <Community node={node} />}
+{tmpl === "learn.html" && <Learn node={node} />}
+{tmpl === "donate.html" && <Donate node={node} />}
+{tmpl === "donate-options.html" && <DonateOptions node={node} />}
+{tmpl === "news.html" && <NewsSection node={node} />}
+{tmpl === "faq.html" && <FaqPage node={node} />}
