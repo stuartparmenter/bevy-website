@@ -7,18 +7,18 @@ import { join, relative, basename, dirname, resolve } from "node:path";
 import { parse as parseToml } from "smol-toml";
 import { slugify } from "./slugify.ts";
 
-// Find the Zola repo root by walking up from cwd for the marker `config.toml`
-// (bundling relocates this module, so a module-relative path is unreliable).
+// Find the project root by walking up from cwd for the marker `astro.config.mjs`
+// (bundling relocates this module, so a module-relative path is unreliable). content/,
+// static/, sass/, release-content/ etc. live alongside it at the project root.
 function findRepoRoot(): string {
   let dir = process.cwd();
   for (let i = 0; i < 8; i++) {
-    if (existsSync(join(dir, "config.toml")) && existsSync(join(dir, "content"))) return dir;
+    if (existsSync(join(dir, "astro.config.mjs")) && existsSync(join(dir, "content"))) return dir;
     const up = resolve(dir, "..");
     if (up === dir) break;
     dir = up;
   }
-  // fallback: parent of cwd (astro-site -> repo)
-  return resolve(process.cwd(), "..");
+  return process.cwd();
 }
 
 export const REPO_ROOT = findRepoRoot();
